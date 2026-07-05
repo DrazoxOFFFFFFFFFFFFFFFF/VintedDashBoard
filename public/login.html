@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - VintedDashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box }
+        :root {
+            --bg:#07070d; --bg2:#0b0b14; --card:#16162a;
+            --text:#eee; --text2:#8888b0; --text3:#505070;
+            --accent:#00d4ff; --accent2:#7c5cfc;
+            --grad:linear-gradient(135deg,#00d4ff,#7c5cfc);
+            --border:rgba(255,255,255,0.06);
+            --radius:14px; --font:'Inter',sans-serif;
+        }
+        body {
+            font-family:var(--font); background:var(--bg);
+            color:var(--text); display:flex; align-items:center;
+            justify-content:center; min-height:100vh;
+            background-image:radial-gradient(ellipse at 50% 0%,rgba(0,212,255,0.04) 0%,transparent 60%);
+        }
+        .auth-wrap {
+            width:100%; max-width:420px; padding:20px;
+        }
+        .logo {
+            text-align:center; margin-bottom:32px;
+        }
+        .logo-icon {
+            width:56px; height:56px; margin:0 auto 12px;
+            border-radius:14px; background:var(--grad);
+            display:flex; align-items:center; justify-content:center;
+            font-size:1.5rem; color:#fff;
+            box-shadow:0 4px 24px rgba(0,212,255,0.3);
+        }
+        .logo h1 {
+            font-size:1.3rem; font-weight:800;
+            background:var(--grad); -webkit-background-clip:text;
+            -webkit-text-fill-color:transparent; background-clip:text;
+        }
+        .logo p { color:var(--text3); font-size:0.8rem; margin-top:4px }
+        .card {
+            background:var(--card); border:1px solid var(--border);
+            border-radius:var(--radius); padding:32px;
+            box-shadow:0 8px 40px rgba(0,0,0,0.4);
+        }
+        .card h2 { font-size:1.1rem; font-weight:700; margin-bottom:6px }
+        .card .sub { color:var(--text2); font-size:0.85rem; margin-bottom:24px }
+        .form-group { margin-bottom:16px }
+        .form-group label {
+            display:flex; align-items:center; gap:6px;
+            font-size:0.75rem; font-weight:600; color:var(--text2);
+            text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;
+        }
+        .form-group label i { color:var(--accent); font-size:0.7rem }
+        .form-group input {
+            width:100%; padding:12px 14px; background:rgba(14,14,30,0.8);
+            border:1px solid var(--border); border-radius:10px;
+            color:var(--text); font-size:0.9rem; font-family:var(--font);
+            transition:0.3s ease;
+        }
+        .form-group input:focus {
+            outline:none; border-color:var(--accent);
+            box-shadow:0 0 0 4px rgba(0,212,255,0.1);
+        }
+        .btn {
+            width:100%; padding:13px; border:none; border-radius:10px;
+            font-size:0.9rem; font-weight:600; font-family:var(--font);
+            cursor:pointer; transition:0.3s ease;
+            display:flex; align-items:center; justify-content:center; gap:8px;
+        }
+        .btn-primary { background:var(--grad); color:#fff; box-shadow:0 4px 20px rgba(0,212,255,0.25) }
+        .btn-primary:hover { box-shadow:0 6px 30px rgba(0,212,255,0.4); transform:translateY(-1px) }
+        .btn-primary:disabled { opacity:0.6; cursor:not-allowed; transform:none }
+        .btn-ghost {
+            background:transparent; color:var(--text2); border:1px solid var(--border);
+        }
+        .btn-ghost:hover { border-color:rgba(255,255,255,0.1); color:var(--text) }
+        .auth-footer { text-align:center; margin-top:18px; font-size:0.85rem; color:var(--text3) }
+        .auth-footer a { color:var(--accent); text-decoration:none; font-weight:600 }
+        .auth-footer a:hover { text-decoration:underline }
+        .error { color:#ff5252; font-size:0.82rem; margin-top:6px; display:none; align-items:center; gap:6px }
+        .error.show { display:flex }
+        .loader { display:none; width:18px; height:18px; border:2px solid rgba(255,255,255,0.2); border-top-color:#fff; border-radius:50%; animation:spin 0.6s linear infinite }
+        .loader.show { display:inline-block }
+        @keyframes spin { to { transform:rotate(360deg) } }
+        .verify-inputs { display:flex; gap:8px; justify-content:center; margin:20px 0 }
+        .verify-inputs input {
+            width:48px; height:56px; text-align:center; font-size:1.5rem; font-weight:700;
+            background:rgba(14,14,30,0.8); border:1px solid var(--border);
+            border-radius:10px; color:var(--text); font-family:var(--font);
+        }
+        .verify-inputs input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(0,212,255,0.1) }
+        .step { display:none }
+        .step.active { display:block }
+        .hidden { display:none !important }
+        .toast {
+            position:fixed; top:24px; right:24px; z-index:2000;
+            background:var(--card); border:1px solid var(--border);
+            border-radius:10px; padding:14px 20px;
+            display:flex; align-items:center; gap:12px;
+            box-shadow:0 8px 32px rgba(0,0,0,0.4);
+            animation:slideIn 0.35s ease; font-size:0.85rem; min-width:300px;
+        }
+        .toast.success { border-left:3px solid #00e676 }
+        .toast.error { border-left:3px solid #ff5252 }
+        .toast .icon { font-size:1.1rem }
+        @keyframes slideIn {
+            from { opacity:0; transform:translateX(50px) }
+            to { opacity:1; transform:translateX(0) }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-wrap">
+        <div class="logo">
+            <div class="logo-icon"><i class="fas fa-store"></i></div>
+            <h1>VintedDashboard</h1>
+            <p>Centre administratif</p>
+        </div>
+
+        <div class="card">
+            <!-- Step 1: Login form -->
+            <div class="step active" id="stepLogin">
+                <h2><i class="fas fa-lock" style="color:var(--accent)"></i> Connexion</h2>
+                <p class="sub">Connecte-toi pour accéder à ton dashboard</p>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label><i class="fas fa-envelope"></i> Email</label>
+                        <input type="email" id="loginEmail" placeholder="exemple@email.com" required autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-key"></i> Mot de passe</label>
+                        <input type="password" id="loginPassword" placeholder="••••••••" required autocomplete="current-password">
+                    </div>
+                    <div class="error" id="loginError"><i class="fas fa-exclamation-circle"></i> <span></span></div>
+                    <button type="submit" class="btn btn-primary" id="loginBtn">
+                        <span class="loader" id="loginLoader"></span>
+                        <span id="loginBtnText"><i class="fas fa-arrow-right"></i> Se connecter</span>
+                    </button>
+                </form>
+                <div class="auth-footer">
+                    Pas encore de compte ? <a href="#" id="goToRegister">Créer un compte</a>
+                </div>
+            </div>
+
+            <!-- Step 2: Register form -->
+            <div class="step" id="stepRegister">
+                <h2><i class="fas fa-user-plus" style="color:var(--accent)"></i> Créer un compte</h2>
+                <p class="sub">Reçois un code de vérification par email</p>
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label><i class="fas fa-envelope"></i> Email</label>
+                        <input type="email" id="regEmail" placeholder="exemple@email.com" required autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-key"></i> Mot de passe</label>
+                        <input type="password" id="regPassword" placeholder="6 caractères minimum" required autocomplete="new-password" minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-check-double"></i> Confirmer le mot de passe</label>
+                        <input type="password" id="regConfirm" placeholder="Répète le mot de passe" required autocomplete="new-password">
+                    </div>
+                    <div class="error" id="regError"><i class="fas fa-exclamation-circle"></i> <span></span></div>
+                    <button type="submit" class="btn btn-primary" id="regBtn">
+                        <span class="loader" id="regLoader"></span>
+                        <span id="regBtnText"><i class="fas fa-paper-plane"></i> Créer mon compte</span>
+                    </button>
+                </form>
+                <div class="auth-footer">
+                    Déjà un compte ? <a href="#" id="goToLogin">Se connecter</a>
+                </div>
+            </div>
+
+            <!-- Step 3: Verify email -->
+            <div class="step" id="stepVerify">
+                <h2><i class="fas fa-shield-halved" style="color:var(--accent)"></i> Vérification</h2>
+                <p class="sub" id="verifyEmailText">Code envoyé à <strong style="color:var(--text)"></strong></p>
+                <div class="verify-inputs">
+                    <input type="text" maxlength="1" class="vc" data-idx="0" inputmode="numeric" pattern="[0-9]">
+                    <input type="text" maxlength="1" class="vc" data-idx="1" inputmode="numeric" pattern="[0-9]">
+                    <input type="text" maxlength="1" class="vc" data-idx="2" inputmode="numeric" pattern="[0-9]">
+                    <input type="text" maxlength="1" class="vc" data-idx="3" inputmode="numeric" pattern="[0-9]">
+                    <input type="text" maxlength="1" class="vc" data-idx="4" inputmode="numeric" pattern="[0-9]">
+                    <input type="text" maxlength="1" class="vc" data-idx="5" inputmode="numeric" pattern="[0-9]">
+                </div>
+                <div class="error" id="verifyError"><i class="fas fa-exclamation-circle"></i> <span></span></div>
+                <button class="btn btn-primary" id="verifyBtn">
+                    <span class="loader" id="verifyLoader"></span>
+                    <span id="verifyBtnText"><i class="fas fa-check"></i> Vérifier</span>
+                </button>
+                <div class="auth-footer" style="margin-top:14px">
+                    <a href="#" id="resendCode" style="font-size:0.8rem;color:var(--text3)"><i class="fas fa-rotate"></i> Renvoyer le code</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const API = window.location.origin + '/api/auth';
+
+    function $(id) { return document.getElementById(id) }
+    function showError(id, msg) { const e = $(id); e.querySelector('span').textContent = msg; e.classList.add('show') }
+    function hideError(id) { $(id).classList.remove('show') }
+    function showStep(id) { document.querySelectorAll('.step').forEach(s => s.classList.remove('active')); $(id).classList.add('active') }
+
+    function toast(msg, type='success') {
+        const t = document.createElement('div'); t.className = 'toast ' + type;
+        const icons = { success:'fa-check-circle', error:'fa-exclamation-circle' };
+        t.innerHTML = '<span class="icon" style="color:'+(type==='success'?'#00e676':'#ff5252')+'"><i class="fas '+icons[type]+'"></i></span> '+msg;
+        document.body.appendChild(t);
+        setTimeout(() => { t.style.opacity='0'; t.style.transform='translateX(40px)'; t.style.transition='all 0.3s'; setTimeout(()=>t.remove(),300) }, 4000);
+    }
+
+    let currentEmail = '';
+
+    // Switch between login and register
+    $('goToRegister').addEventListener('click', e => { e.preventDefault(); hideError('loginError'); showStep('stepRegister') });
+    $('goToLogin').addEventListener('click', e => { e.preventDefault(); hideError('regError'); showStep('stepLogin') });
+
+    // Verify code inputs auto-advance
+    document.querySelectorAll('.vc').forEach((inp, idx, arr) => {
+        inp.addEventListener('input', () => {
+            if (inp.value && idx < arr.length-1) arr[idx+1].focus();
+        });
+        inp.addEventListener('keydown', e => {
+            if (e.key === 'Backspace' && !inp.value && idx > 0) arr[idx-1].focus();
+        });
+        inp.addEventListener('paste', e => {
+            e.preventDefault();
+            const data = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g,'').slice(0,6);
+            data.split('').forEach((ch, i) => { if(arr[i]) { arr[i].value = ch; if(i < arr.length-1) arr[i+1].focus() } });
+        });
+    });
+
+    // LOGIN
+    $('loginForm').addEventListener('submit', async e => {
+        e.preventDefault(); hideError('loginError');
+        const email = $('loginEmail').value; const password = $('loginPassword').value;
+        $('loginLoader').classList.add('show'); $('loginBtnText').classList.add('hidden'); $('loginBtn').disabled = true;
+
+        try {
+            const res = await fetch(API + '/login', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({email, password})
+            });
+            const data = await res.json();
+            if (!res.ok) { showError('loginError', data.error || 'Erreur'); return }
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            window.location.href = '/app';
+        } catch(e) { showError('loginError', 'Erreur de connexion au serveur') }
+        finally { $('loginLoader').classList.remove('show'); $('loginBtnText').classList.remove('hidden'); $('loginBtn').disabled = false }
+    });
+
+    // REGISTER
+    $('registerForm').addEventListener('submit', async e => {
+        e.preventDefault(); hideError('regError');
+        const email = $('regEmail').value;
+        const password = $('regPassword').value;
+        const confirm = $('regConfirm').value;
+
+        if (password !== confirm) { showError('regError', 'Les mots de passe ne correspondent pas'); return }
+        $('regLoader').classList.add('show'); $('regBtnText').classList.add('hidden'); $('regBtn').disabled = true;
+
+        try {
+            const res = await fetch(API + '/register', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({email, password})
+            });
+            const data = await res.json();
+            if (!res.ok) { showError('regError', data.error || 'Erreur'); return }
+            currentEmail = email;
+            $('verifyEmailText').querySelector('strong').textContent = email;
+            showStep('stepVerify');
+            toast('Compte créé ! Vérifie ton email', 'success');
+        } catch(e) { showError('regError', 'Erreur de connexion au serveur') }
+        finally { $('regLoader').classList.remove('show'); $('regBtnText').classList.remove('hidden'); $('regBtn').disabled = false }
+    });
+
+    // VERIFY
+    $('verifyBtn').addEventListener('click', async () => {
+        hideError('verifyError');
+        const code = Array.from(document.querySelectorAll('.vc')).map(i => i.value).join('');
+        if (code.length !== 6) { showError('verifyError', 'Entre le code à 6 chiffres'); return }
+
+        $('verifyLoader').classList.add('show'); $('verifyBtnText').classList.add('hidden'); $('verifyBtn').disabled = true;
+
+        try {
+            const res = await fetch(API + '/verify', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({email: currentEmail, code})
+            });
+            const data = await res.json();
+            if (!res.ok) { showError('verifyError', data.error || 'Code invalide'); return }
+            toast('Email vérifié ! Connecte-toi', 'success');
+            showStep('stepLogin');
+            $('loginEmail').value = currentEmail;
+        } catch(e) { showError('verifyError', 'Erreur de connexion') }
+        finally { $('verifyLoader').classList.remove('show'); $('verifyBtnText').classList.remove('hidden'); $('verifyBtn').disabled = false }
+    });
+
+    // Resend code
+    $('resendCode').addEventListener('click', async e => {
+        e.preventDefault();
+        const res = await fetch(API + '/resend-code', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({email: currentEmail})
+        });
+        const data = await res.json();
+        if (res.ok) toast('Nouveau code envoyé', 'success');
+        else toast(data.error || 'Erreur', 'error');
+    });
+
+    // Redirect to login if token exists but expired
+    const token = localStorage.getItem('token');
+    if (token) {
+        window.location.href = '/app';
+    }
+    </script>
+</body>
+</html>
