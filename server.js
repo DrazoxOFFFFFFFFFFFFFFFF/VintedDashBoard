@@ -1,9 +1,18 @@
 require('dotenv').config();
+const crypto = require('crypto');
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
+
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = crypto.randomBytes(32).toString('hex');
+  console.log('JWT_SECRET auto-généré');
+}
+if (!process.env.APP_URL) {
+  process.env.APP_URL = 'http://localhost:' + (process.env.PORT || 3000);
+}
 
 const app = express();
 

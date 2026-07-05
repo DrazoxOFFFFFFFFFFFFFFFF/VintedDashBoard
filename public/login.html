@@ -276,7 +276,12 @@
             currentEmail = email;
             $('verifyEmailText').querySelector('strong').textContent = email;
             showStep('stepVerify');
-            toast('Compte créé ! Vérifie ton email', 'success');
+            if (data.devCode) {
+                document.querySelectorAll('.vc').forEach((inp, i) => { inp.value = data.devCode[i] || '' });
+                toast('Code de vérification : ' + data.devCode + ' (mode test)', 'success');
+            } else {
+                toast('Compte créé ! Vérifie ton email', 'success');
+            }
         } catch(e) { showError('regError', 'Erreur de connexion au serveur') }
         finally { $('regLoader').classList.remove('show'); $('regBtnText').classList.remove('hidden'); $('regBtn').disabled = false }
     });

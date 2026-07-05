@@ -35,23 +35,22 @@ router.post('/register', async (req, res) => {
 
     run('INSERT INTO users (email, password, verification_code) VALUES (?, ?, ?)', [email, hashed, code]);
 
-    const transport = createTransport();
-    await transport.sendMail({
-      from: process.env.FROM_EMAIL || 'noreply@vinteddashboard.com',
-      to: email,
-      subject: 'VintedDashboard - Code de vérification',
-      html: `
-        <div style="font-family:Arial;max-width:480px;margin:0 auto;padding:24px;background:#0b0b14;border-radius:14px;color:#eee">
-          <h2 style="color:#00d4ff">VintedDashboard</h2>
-          <p style="color:#888">Bienvenue ! Voici ton code de vérification :</p>
-          <div style="font-size:2rem;font-weight:800;text-align:center;padding:20px;background:#10101e;border-radius:10px;margin:16px 0;color:#00d4ff;letter-spacing:8px">${code}</div>
-          <p style="color:#505070;font-size:0.85rem">Ce code expire dans 10 minutes.</p>
-          <p style="color:#505070;font-size:0.85rem"><a href="${appUrl}" style="color:#00d4ff">${appUrl}</a></p>
-        </div>
-      `
-    });
+    console.log('\n========================================');
+    console.log(' CODE DE VÉRIFICATION POUR ' + email + ' : ' + code);
+    console.log('========================================\n');
 
-    res.json({ message: 'Compte créé. Vérifie ton email pour le code.' });
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      const transport = createTransport();
+      await transport.sendMail({
+        from: process.env.FROM_EMAIL || 'noreply@vinteddashboard.com',
+        to: email,
+        subject: 'VintedDashboard - Code de vérification',
+        html: `<div style="font-family:Arial;max-width:480px;margin:0 auto;padding:24px;background:#0b0b14;border-radius:14px;color:#eee"><h2 style="color:#00d4ff">VintedDashboard</h2><p style="color:#888">Bienvenue ! Voici ton code de vérification :</p><div style="font-size:2rem;font-weight:800;text-align:center;padding:20px;background:#10101e;border-radius:10px;margin:16px 0;color:#00d4ff;letter-spacing:8px">${code}</div><p style="color:#505070;font-size:0.85rem">Ce code expire dans 10 minutes.</p></div>`
+      });
+    }
+
+    const smtpConfigured = process.env.SMTP_USER && process.env.SMTP_PASS;
+    res.json({ message: 'Compte créé. Vérifie ton email pour le code.', devCode: smtpConfigured ? undefined : code });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -129,17 +128,19 @@ router.post('/resend-code', async (req, res) => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     run('UPDATE users SET verification_code = ? WHERE id = ?', [code, user.id]);
 
-    const transport = createTransport();
-    await transport.sendMail({
-      from: process.env.FROM_EMAIL || 'noreply@vinteddashboard.com',
-      to: email,
-      subject: 'VintedDashboard - Nouveau code de vérification',
-      html: `<div style="font-family:Arial;max-width:480px;margin:0 auto;padding:24px;background:#0b0b14;border-radius:14px;color:#eee">
-        <h2 style="color:#00d4ff">VintedDashboard</h2>
-        <p style="color:#888">Nouveau code de vérification :</p>
-        <div style="font-size:2rem;font-weight:800;text-align:center;padding:20px;background:#10101e;border-radius:10px;margin:16px 0;color:#00d4ff;letter-spacing:8px">${code}</div>
-      </div>`
-    });
+    console.log('\n========================================');
+    console.log(' NOUVEAU CODE POUR ' + email + ' : ' + code);
+    console.log('========================================\n');
+
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      const transport = createTransport();
+      await transport.sendMail({
+        from: process.env.FROM_EMAIL || 'noreply@vinteddashboard.com',
+        to: email,
+        subject: 'VintedDashboard - Nouveau code de vérification',
+        html: `<div style="font-family:Arial;max-width:480px;margin:0 auto;padding:24px;background:#0b0b14;border-radius:14px;color:#eee"><h2 style="color:#00d4ff">VintedDashboard</h2><p style="color:#888">Nouveau code de vérification :</p><div style="font-size:2rem;font-weight:800;text-align:center;padding:20px;background:#10101e;border-radius:10px;margin:16px 0;color:#00d4ff;letter-spacing:8px">${code}</div></div>`
+      });
+    }
 
     res.json({ message: 'Nouveau code envoyé' });
   } catch (err) {
