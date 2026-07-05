@@ -1,0 +1,31 @@
+{
+  "name": "VintedDashboard",
+  "short_name": "VintedDash",
+  "description": "Centre administratif Vinted — gérez votre stock, comptabilité et objectifs",
+  "start_url": "/VintedDashBoard/index.html",
+  "display": "standalone",
+  "background_color": "#0f0f1a",
+  "theme_color": "#7c3aed",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["business", "utilities"]
+}
