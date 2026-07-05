@@ -7,32 +7,22 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 
-let etherealTransporter = null;
+function sendEmail({ to, subject, html }) {
+  const transport = (process.env.SMTP_USER && process.env.SMTP_PASS)
+    ? nodemailer.createTransport({ host: process.env.SMTP_HOST, port: parseInt(process.env.SMTP_PORT), secure: false, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } })
+    : nodemailer.createTransport({ jsonTransport: true });
 
-async function createTransport() {
-  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-    const transport = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT),
-      secure: false,
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-    });
-    console.log(' SMTP configuré : ' + process.env.SMTP_USER);
-    return transport;
-  }
-  if (etherealTransporter) return etherealTransporter;
-  try {
-    const testAccount = await nodemailer.createTestAccount();
-    etherealTransporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email', port: 587, secure: false,
-      auth: { user: testAccount.user, pass: testAccount.pass }
-    });
-    console.log(' Ethereal SMTP : ' + testAccount.user);
-    console.log(' Voir les emails : https://ethereal.email/login');
-    return etherealTransporter;
-  } catch {
-    return nodemailer.createTransport({ jsonTransport: true });
-  }
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => { console.log(' Email timeout'); resolve(); }, 5000);
+    transport.sendMail({ from: process.env.FROM_EMAIL || 'noreply@vinteddashboard.com', to, subject, html })
+      .then((info) => {
+        clearTimeout(timeout);
+        const preview = nodemailer.getTestMessageUrl(info);
+        if (preview) console.log(' Email preview: ' + preview);
+      })
+      .catch((err) => { clearTimeout(timeout); console.log(' Email error: ' + err.message); })
+      .finally(() => resolve());
+  });
 }
 
 router.post('/register', async (req, res) => {
@@ -51,24 +41,12 @@ router.post('/register', async (req, res) => {
 
     run('INSERT INTO users (email, password, verification_code) VALUES (?, ?, ?)', [email, hashed, code]);
 
-    try {
-      const transport = await createTransport();
-      const info = await transport.sendMail({
-        from: process.env.FROM_EMAIL || 'noreply@vinteddashboard.com',
-        to: email,
-        subject: 'VintedDashboard - Code de vérification',
-        html: `<div style="font-family:Arial;max-width:480px;margin:0 auto;padding:24px;background:#0b0b14;border-radius:14px;color:#eee"><h2 style="color:#00d4ff">VintedDashboard</h2><p style="color:#888">Bienvenue ! Voici ton code de vérification :</p><div style="font-size:2rem;font-weight:800;text-align:center;padding:20px;background:#10101e;border-radius:10px;margin:16px 0;color:#00d4ff;letter-spacing:8px">${code}</div><p style="color:#505070;font-size:0.85rem">Code : <strong>${code}</strong></p></div>`
-      });
-      const previewUrl = nodemailer.getTestMessageUrl(info);
-      if (previewUrl) {
-        console.log(' Email envoyé (Ethereal) : ' + previewUrl);
-        console.log(' Code : ' + code);
-      } else {
-        console.log(' Email envoyé à ' + email + ' | Code : ' + code);
-      }
-    } catch (err) {
-      console.log(' Email non envoyé, code affiché dans l\'interface');
-    }
+    console.log(' CODE: ' + email + ' -> ' + code);
+    sendEmail({
+      to: email,
+      subject: 'VintedDashboard - Code de vérification',
+      html: `<div style="font-family:Arial;max-width:480px;margin:0 auto;padding:24px;background:#0b0b14;border-radius:14px;color:#eee"><h2 style="color:#00d4ff">VintedDashboard</h2><p style="color:#888">Bienvenue ! Voici ton code de vérification :</p><div style="font-size:2rem;font-weight:800;text-align:center;padding:20px;background:#10101e;border-radius:10px;margin:16px 0;color:#00d4ff;letter-spacing:8px">${code}</div><p style="color:#505070;font-size:0.85rem">Code : <strong>${code}</strong></p></div>`
+    });
 
     res.json({ message: 'Compte créé. Vérifie ton email pour le code.', devCode: code });
   } catch (err) {
@@ -148,19 +126,12 @@ router.post('/resend-code', async (req, res) => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     run('UPDATE users SET verification_code = ? WHERE id = ?', [code, user.id]);
 
-    try {
-      const transport = await createTransport();
-      const info = await transport.sendMail({
-        from: process.env.FROM_EMAIL || 'noreply@vinteddashboard.com',
-        to: email,
-        subject: 'VintedDashboard - Nouveau code de vérification',
-        html: `<div style="font-family:Arial;max-width:480px;margin:0 auto;padding:24px;background:#0b0b14;border-radius:14px;color:#eee"><h2 style="color:#00d4ff">VintedDashboard</h2><p style="color:#888">Nouveau code :</p><div style="font-size:2rem;font-weight:800;text-align:center;padding:20px;background:#10101e;border-radius:10px;margin:16px 0;color:#00d4ff;letter-spacing:8px">${code}</div></div>`
-      });
-      const previewUrl = nodemailer.getTestMessageUrl(info);
-      if (previewUrl) console.log(' Email renvoyé : ' + previewUrl);
-    } catch (err) {
-      console.log(' Email non envoyé, code : ' + code);
-    }
+    console.log(' CODE RESEND: ' + email + ' -> ' + code);
+    sendEmail({
+      to: email,
+      subject: 'VintedDashboard - Nouveau code de vérification',
+      html: `<div style="font-family:Arial;max-width:480px;margin:0 auto;padding:24px;background:#0b0b14;border-radius:14px;color:#eee"><h2 style="color:#00d4ff">VintedDashboard</h2><p style="color:#888">Nouveau code :</p><div style="font-size:2rem;font-weight:800;text-align:center;padding:20px;background:#10101e;border-radius:10px;margin:16px 0;color:#00d4ff;letter-spacing:8px">${code}</div></div>`
+    });
 
     res.json({ message: 'Nouveau code envoyé', devCode: code });
   } catch (err) {

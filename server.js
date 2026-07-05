@@ -24,6 +24,11 @@ app.use(express.json());
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.get('/api/health', (req, res) => {
+  const adminUser = get('SELECT id, email, is_admin FROM users WHERE email = ?', ['admin@vinteddashboard.com']);
+  res.json({ status: 'ok', admin_exists: !!adminUser, admin: adminUser || null });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
 app.use('/api/admin', adminRoutes);
