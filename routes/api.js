@@ -9,7 +9,7 @@ router.use(auth);
 router.get('/items', async (req, res) => {
   try {
     await getDb();
-    const items = await query('SELECT * FROM items WHERE user_id = ? ORDER BY dateAdded DESC', [req.userId]);
+    const items = await query('SELECT * FROM items WHERE user_id = ? ORDER BY dateadded DESC', [req.userId]);
     res.json(items);
   } catch (err) { res.status(500).json({ error: 'Erreur serveur' }) }
 });

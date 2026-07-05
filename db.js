@@ -33,11 +33,11 @@ async function getDb() {
         id TEXT PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         name TEXT NOT NULL,
-        "purchasePrice" REAL DEFAULT 0,
-        "sellingPrice" REAL DEFAULT 0,
+        purchaseprice REAL DEFAULT 0,
+        sellingprice REAL DEFAULT 0,
         status TEXT DEFAULT 'en_vente',
-        "dateAdded" TEXT,
-        "dateSold" TEXT
+        dateadded TEXT,
+        datesold TEXT
       )
     `);
     await client.query(`
@@ -49,7 +49,7 @@ async function getDb() {
         description TEXT,
         category TEXT,
         date TEXT,
-        "itemId" TEXT
+        itemid TEXT
       )
     `);
     client.release();
@@ -115,6 +115,27 @@ function saveDb() {
   }
 }
 
+/* Map PostgreSQL lowercase columns to camelCase for the frontend */
+const pgColMap = {
+  purchaseprice: 'purchasePrice',
+  sellingprice: 'sellingPrice',
+  dateadded: 'dateAdded',
+  datesold: 'dateSold',
+  itemid: 'itemId',
+  user_id: 'user_id',
+  created_at: 'created_at',
+  verification_code: 'verification_code',
+  is_admin: 'is_admin'
+};
+function pgMapRow(row) {
+  if (!row) return row;
+  const o = {};
+  for (const [k, v] of Object.entries(row)) {
+    o[pgColMap[k] || k] = v;
+  }
+  return o;
+}
+
 let pgCounter = 0;
 function pgSql(sql) {
   return sql.replace(/\?/g, () => '$' + (++pgCounter));
@@ -125,7 +146,7 @@ async function query(sql, params = []) {
   if (pgPool) {
     pgReset();
     const res = await pgPool.query(pgSql(sql), params);
-    return res.rows;
+    return res.rows.map(pgMapRow);
   }
   const stmt = sqlDb.prepare(sql);
   stmt.bind(params);
@@ -144,7 +165,7 @@ async function get(sql, params = []) {
   if (pgPool) {
     pgReset();
     const res = await pgPool.query(pgSql(sql), params);
-    return res.rows[0] || null;
+    return pgMapRow(res.rows[0] || null);
   }
   const stmt = sqlDb.prepare(sql);
   stmt.bind(params);
