@@ -28,7 +28,20 @@ const App = {
         await this.loadData();
         this.setupNavigation();
         this.setupLogout();
+        this.setupAdminLink();
         this.navigate('dashboard');
+    },
+
+    setupAdminLink() {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const link = document.getElementById('adminLink');
+        if (link && user.is_admin) {
+            link.style.display = 'flex';
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.location.href = '/admin';
+            });
+        }
     },
 
     async loadData() {

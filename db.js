@@ -31,9 +31,11 @@ function initSchema(db) {
       verification_code TEXT,
       goal REAL DEFAULT 2000,
       currency TEXT DEFAULT '€',
+      is_admin INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
+  try { db.run("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0"); } catch(e) {}
   db.run(`
     CREATE TABLE IF NOT EXISTS items (
       id TEXT PRIMARY KEY,

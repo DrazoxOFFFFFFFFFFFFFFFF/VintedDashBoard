@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - VintedDashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .admin-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:24px }
+        .admin-stat { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center }
+        .admin-stat-value { font-size:2rem; font-weight:800; color:var(--accent) }
+        .admin-stat-label { font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-top:4px }
+        .admin-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px }
+        .admin-tabs { display:flex; gap:8px; margin-bottom:20px }
+        .admin-tab { padding:10px 20px; border-radius:10px; border:1px solid var(--border); cursor:pointer; background:transparent; color:var(--text-secondary); font-family:var(--font); font-size:0.85rem; font-weight:500; transition:0.3s }
+        .admin-tab.active { background:var(--accent-glow); border-color:var(--accent); color:var(--accent) }
+        .admin-tab:hover { border-color:var(--border-hover); color:var(--text-primary) }
+        .admin-section { display:none }
+        .admin-section.active { display:block }
+        .badge-admin { background:linear-gradient(135deg,#ffd740,#ffab00); color:#000; font-size:0.6rem; padding:2px 8px; border-radius:6px; font-weight:700; text-transform:uppercase; margin-left:6px }
+        .btn-xs { padding:4px 10px; font-size:0.7rem }
+        .empty-state { text-align:center; padding:40px; color:var(--text-muted) }
+        .empty-state i { font-size:2.5rem; opacity:0.15; margin-bottom:12px }
+        .back-link { color:var(--accent); text-decoration:none; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px; margin-bottom:16px }
+        .back-link:hover { text-decoration:underline }
+        .admin-user-email { font-weight:600; color:var(--text-primary) }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon"><i class="fas fa-store"></i></div>
+                <div class="logo-text">
+                    <strong>VintedDash</strong>
+                    <span>Administration</span>
+                </div>
+            </div>
+            <nav class="nav">
+                <a class="nav-item active" data-page="admin-dashboard"><i class="fas fa-shield-halved"></i><span>Dashboard Admin</span></a>
+                <a class="nav-item" data-page="admin-users"><i class="fas fa-users"></i><span>Utilisateurs</span></a>
+            </nav>
+            <div class="sidebar-footer">
+                <div style="display:flex;gap:6px;flex-direction:column">
+                    <a href="/app" class="btn btn-ghost btn-xs" style="justify-content:center;flex:1"><i class="fas fa-arrow-left"></i> Retour au dashboard</a>
+                    <button class="btn btn-ghost btn-xs" id="logoutBtn" style="flex:1;justify-content:center"><i class="fas fa-right-from-bracket"></i> Déconnexion</button>
+                </div>
+            </div>
+        </aside>
+        <main class="main-content" id="page-content"></main>
+    </div>
+
+    <script>
+    const API = window.location.origin + '/api';
+
+    function getToken() { const t = localStorage.getItem('token'); if (!t) { window.location.href = '/'; return null } return t }
+
+    async function api(path, opts = {}) {
+        const token = getToken(); if (!token) return;
+        const res = await fetch(API + path, { ...opts, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, ...opts.headers } });
+        if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/'; return }
+        if (res.status === 403) { window.location.href = '/app'; return }
+        return res.json();
+    }
+
+    const Admin = {
+        async init() {
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            if (!user.is_admin) { window.location.href = '/app'; return }
+
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                    el.classList.add('active');
+                    this.navigate(el.dataset.page);
+                });
+            });
+
+            document.getElementById('logoutBtn').addEventListener('click', () => {
+                localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/';
+            });
+
+            this.navigate('admin-dashboard');
+        },
+
+        navigate(page) {
+            const container = document.getElementById('page-content');
+            if (page === 'admin-dashboard') this.renderDashboard(container);
+            else if (page === 'admin-users') this.renderUsers(container);
+        },
+
+        async renderDashboard(container) {
+            container.innerHTML = '';
+            const stats = await api('/admin/stats');
+            if (!stats) return;
+
+            container.appendChild(this.h('div', { className: 'page-header' },
+                this.h('h1', {}, this.h('i', { className: 'fas fa-shield-halved' }), ' Administration')
+            ));
+
+            const grid = this.h('div', { className: 'admin-grid' });
+            const cards = [
+                { value: stats.totalUsers, label: 'Utilisateurs', icon: 'fa-users' },
+                { value: stats.verifiedUsers, label: 'Vérifiés', icon: 'fa-check-circle' },
+                { value: stats.totalItems, label: 'Articles', icon: 'fa-box' },
+                { value: stats.totalTransactions, label: 'Transactions', icon: 'fa-receipt' }
+            ];
+            cards.forEach(c => {
+                const card = this.h('div', { className: 'admin-stat' });
+                card.innerHTML = `<i class="fas ${c.icon}" style="font-size:1.5rem;color:var(--accent);margin-bottom:8px"></i>
+                    <div class="admin-stat-value">${c.value}</div>
+                    <div class="admin-stat-label">${c.label}</div>`;
+                grid.appendChild(card);
+            });
+            container.appendChild(grid);
+
+            const info = this.h('div', { className: 'form-card' });
+            info.innerHTML = `<div class="form-title"><i class="fas fa-info-circle"></i> Informations</div>
+                <p style="color:var(--text-secondary);font-size:0.85rem">
+                    <i class="fas fa-circle" style="font-size:0.4rem;color:var(--accent);margin-right:6px"></i>
+                    Connecté en tant qu'administrateur<br>
+                    <i class="fas fa-circle" style="font-size:0.4rem;color:var(--accent);margin-right:6px"></i>
+                    Tu peux gérer les utilisateurs depuis l'onglet "Utilisateurs"
+                </p>`;
+            container.appendChild(info);
+        },
+
+        async renderUsers(container) {
+            container.innerHTML = '';
+            container.appendChild(this.h('div', { className: 'page-header' },
+                this.h('h1', {}, this.h('i', { className: 'fas fa-users' }), ' Gestion des utilisateurs')
+            ));
+
+            const users = await api('/admin/users');
+            if (!users || !users.length) {
+                container.innerHTML += `<div class="empty-state"><i class="fas fa-users-slash"></i><p>Aucun utilisateur</p></div>`;
+                return;
+            }
+
+            const tc = this.h('div', { className: 'table-container' });
+            tc.innerHTML = `<div class="table-header"><h3><i class="fas fa-list"></i> ${users.length} utilisateur(s)</h3></div>`;
+            const table = document.createElement('table');
+            table.innerHTML = `<thead><tr>
+                <th><i class="fas fa-hashtag"></i> ID</th>
+                <th><i class="fas fa-envelope"></i> Email</th>
+                <th><i class="fas fa-check-circle"></i> Vérifié</th>
+                <th><i class="fas fa-shield"></i> Admin</th>
+                <th><i class="fas fa-euro-sign"></i> Objectif</th>
+                <th><i class="far fa-calendar"></i> Créé le</th>
+                <th><i class="fas fa-tools"></i> Actions</th>
+            </tr></thead><tbody id="userTableBody"></tbody>`;
+            const tbody = table.querySelector('#userTableBody');
+            const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+
+            users.forEach(u => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${u.id}</td>
+                    <td class="admin-user-email">${this.esc(u.email)}${u.is_admin ? ' <span class="badge-admin">Admin</span>' : ''}</td>
+                    <td>${u.verified ? '<i class="fas fa-check-circle" style="color:var(--success)"></i>' : '<i class="fas fa-times-circle" style="color:var(--danger)"></i>'}</td>
+                    <td>${u.is_admin ? '<i class="fas fa-shield-halved" style="color:var(--warning)"></i> Oui' : 'Non'}</td>
+                    <td>${u.goal.toFixed(2)}€</td>
+                    <td style="font-size:0.8rem;color:var(--text-muted)">${u.created_at ? u.created_at.slice(0,10) : '-'}</td>
+                    <td style="display:flex;gap:4px">
+                        ${!u.is_admin ? `<button class="btn btn-ghost btn-xs btn-icon promote-btn" data-id="${u.id}" title="Promouvoir admin" style="color:var(--warning)"><i class="fas fa-shield"></i></button>` : ''}
+                        <button class="btn btn-ghost btn-xs btn-icon delete-user-btn" data-id="${u.id}" title="Supprimer" style="color:var(--danger)" ${u.id === currentUser.id ? 'disabled' : ''}><i class="fas fa-trash-can"></i></button>
+                    </td>
+                `;
+                const promoteBtn = tr.querySelector('.promote-btn');
+                if (promoteBtn) {
+                    promoteBtn.addEventListener('click', async () => {
+                        if (!confirm('Promouvoir cet utilisateur en admin ?')) return;
+                        const result = await api('/admin/users/' + u.id, { method: 'PUT', body: JSON.stringify({ is_admin: true }) });
+                        if (result) { this.toast('Utilisateur promu admin', 'success'); this.renderUsers(container); }
+                    });
+                }
+                const deleteBtn = tr.querySelector('.delete-user-btn');
+                if (deleteBtn) {
+                    deleteBtn.addEventListener('click', async () => {
+                        if (!confirm('Supprimer définitivement cet utilisateur et toutes ses données ?')) return;
+                        const result = await api('/admin/users/' + u.id, { method: 'DELETE' });
+                        if (result) { this.toast('Utilisateur supprimé', 'info'); this.renderUsers(container); }
+                    });
+                }
+                tbody.appendChild(tr);
+            });
+            tc.appendChild(table);
+            container.appendChild(tc);
+        },
+
+        h(tag, attrs, ...children) {
+            const el = document.createElement(tag);
+            if (attrs) { for (const [k, v] of Object.entries(attrs)) { if (k === 'className') el.className = v; else el.setAttribute(k, v); } }
+            for (const c of children) { if (typeof c === 'string') el.appendChild(document.createTextNode(c)); else if (c) el.appendChild(c); }
+            return el;
+        },
+
+        esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; },
+
+        toast(msg, type = 'info') {
+            let container = document.getElementById('toastContainer');
+            if (!container) { container = document.createElement('div'); container.id = 'toastContainer'; container.className = 'toast-container'; document.body.appendChild(container); }
+            const config = { success: { icon: 'fa-check-circle', title: 'Succès', color: 'var(--success)' }, error: { icon: 'fa-exclamation-circle', title: 'Erreur', color: 'var(--danger)' }, info: { icon: 'fa-info-circle', title: 'Info', color: 'var(--accent)' } };
+            const c = config[type] || config.info;
+            const t = document.createElement('div');
+            t.className = 'toast ' + type;
+            t.innerHTML = '<div class="toast-icon" style="color:' + c.color + ';background:' + c.color + '15"><i class="fas ' + c.icon + '"></i></div><div class="toast-content"><div class="toast-title">' + c.title + '</div><div class="toast-msg">' + msg + '</div></div><button class="toast-close"><i class="fas fa-times"></i></button>';
+            t.querySelector('.toast-close').addEventListener('click', () => { t.style.opacity = '0'; t.style.transform = 'translateX(40px)'; setTimeout(() => t.remove(), 300); });
+            container.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(40px)'; t.style.transition = 'all 0.3s ease'; setTimeout(() => t.remove(), 300); }, 4000);
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => Admin.init());
+    </script>
+</body>
+</html>
