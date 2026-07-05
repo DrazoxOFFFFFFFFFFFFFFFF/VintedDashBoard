@@ -14,7 +14,7 @@
         .admin-stat-value { font-size:2rem; font-weight:800; color:var(--accent) }
         .admin-stat-label { font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-top:4px }
         .admin-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px }
-        .admin-tabs { display:flex; gap:8px; margin-bottom:20px }
+        .admin-tabs { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap }
         .admin-tab { padding:10px 20px; border-radius:10px; border:1px solid var(--border); cursor:pointer; background:transparent; color:var(--text-secondary); font-family:var(--font); font-size:0.85rem; font-weight:500; transition:0.3s }
         .admin-tab.active { background:var(--accent-glow); border-color:var(--accent); color:var(--accent) }
         .admin-tab:hover { border-color:var(--border-hover); color:var(--text-primary) }
@@ -27,6 +27,16 @@
         .back-link { color:var(--accent); text-decoration:none; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px; margin-bottom:16px }
         .back-link:hover { text-decoration:underline }
         .admin-user-email { font-weight:600; color:var(--text-primary) }
+        .chart-card-admin { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:20px }
+        .chart-card-admin .chart-header h3 { font-size:0.9rem; font-weight:600; margin:0 0 16px; color:var(--text-primary) }
+        .chart-card-admin .chart-header h3 i { color:var(--accent); margin-right:8px }
+        .chart-card-admin .chart-container { height:250px }
+        .export-buttons { display:flex; gap:12px; flex-wrap:wrap; margin-top:20px }
+        .export-buttons .btn { flex:1; min-width:180px; justify-content:center }
+        .filter-bar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px }
+        .filter-bar input, .filter-bar select { background:var(--bg-input); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text-primary); font-family:var(--font); font-size:0.8rem }
+        .filter-bar input::placeholder { color:var(--text-muted) }
+        .filter-bar input:focus, .filter-bar select:focus { outline:none; border-color:var(--accent) }
     </style>
 </head>
 <body>
@@ -40,8 +50,11 @@
                 </div>
             </div>
             <nav class="nav">
-                <a class="nav-item active" data-page="admin-dashboard"><i class="fas fa-shield-halved"></i><span>Dashboard Admin</span></a>
+                <a class="nav-item active" data-page="admin-dashboard"><i class="fas fa-shield-halved"></i><span>Dashboard</span></a>
                 <a class="nav-item" data-page="admin-users"><i class="fas fa-users"></i><span>Utilisateurs</span></a>
+                <a class="nav-item" data-page="admin-items"><i class="fas fa-box"></i><span>Articles</span></a>
+                <a class="nav-item" data-page="admin-transactions"><i class="fas fa-receipt"></i><span>Transactions</span></a>
+                <a class="nav-item" data-page="admin-export"><i class="fas fa-download"></i><span>Export</span></a>
             </nav>
             <div class="sidebar-footer">
                 <div style="display:flex;gap:6px;flex-direction:column">
@@ -53,8 +66,10 @@
         <main class="main-content" id="page-content"></main>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script>
     const API = window.location.origin + '/api';
+    let adminChart = null;
 
     function getToken() { const t = localStorage.getItem('token'); if (!t) { window.location.href = '/'; return null } return t }
 
@@ -91,9 +106,15 @@
             const container = document.getElementById('page-content');
             if (page === 'admin-dashboard') this.renderDashboard(container);
             else if (page === 'admin-users') this.renderUsers(container);
+            else if (page === 'admin-items') this.renderItems(container);
+            else if (page === 'admin-transactions') this.renderTransactions(container);
+            else if (page === 'admin-export') this.renderExport(container);
         },
 
+        /* ── DASHBOARD ── */
+
         async renderDashboard(container) {
+            if (adminChart) { adminChart.destroy(); adminChart = null }
             container.innerHTML = '';
             const stats = await api('/admin/stats');
             if (!stats) return;
@@ -107,7 +128,10 @@
                 { value: stats.totalUsers, label: 'Utilisateurs', icon: 'fa-users' },
                 { value: stats.verifiedUsers, label: 'Vérifiés', icon: 'fa-check-circle' },
                 { value: stats.totalItems, label: 'Articles', icon: 'fa-box' },
-                { value: stats.totalTransactions, label: 'Transactions', icon: 'fa-receipt' }
+                { value: stats.itemsSold, label: 'Vendus', icon: 'fa-tag' },
+                { value: stats.totalTransactions, label: 'Transactions', icon: 'fa-receipt' },
+                { value: parseFloat(stats.totalRevenue).toFixed(0) + this.state?.settings?.currency || '€', label: 'Revenus totaux', icon: 'fa-coins' },
+                { value: parseFloat(stats.totalExpenses).toFixed(0) + this.state?.settings?.currency || '€', label: 'Dépenses totales', icon: 'fa-cart-shopping' }
             ];
             cards.forEach(c => {
                 const card = this.h('div', { className: 'admin-stat' });
@@ -118,18 +142,48 @@
             });
             container.appendChild(grid);
 
-            const info = this.h('div', { className: 'form-card' });
-            info.innerHTML = `<div class="form-title"><i class="fas fa-info-circle"></i> Informations</div>
-                <p style="color:var(--text-secondary);font-size:0.85rem">
-                    <i class="fas fa-circle" style="font-size:0.4rem;color:var(--accent);margin-right:6px"></i>
-                    Connecté en tant qu'administrateur<br>
-                    <i class="fas fa-circle" style="font-size:0.4rem;color:var(--accent);margin-right:6px"></i>
-                    Tu peux gérer les utilisateurs depuis l'onglet "Utilisateurs"
-                </p>`;
-            container.appendChild(info);
+            const chartCard = this.h('div', { className: 'chart-card-admin' });
+            chartCard.innerHTML = `<div class="chart-header"><h3><i class="fas fa-chart-line"></i>Activité (30 jours)</h3></div>
+                <div class="chart-container"><canvas id="adminActivityChart"></canvas></div>`;
+            container.appendChild(chartCard);
+
+            this.initActivityChart();
         },
 
+        async initActivityChart() {
+            const canvas = document.getElementById('adminActivityChart');
+            if (!canvas || typeof Chart === 'undefined') return;
+            const data = await api('/admin/activity');
+            if (!data) return;
+            const ctx = canvas.getContext('2d');
+            adminChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        { label: 'Utilisateurs', data: data.userCounts, backgroundColor: '#00d4ff88', borderColor: '#00d4ff', borderWidth: 1, borderRadius: 4 },
+                        { label: 'Articles', data: data.itemCounts, backgroundColor: '#00e67688', borderColor: '#00e676', borderWidth: 1, borderRadius: 4 },
+                        { label: 'Transactions', data: data.txnCounts, backgroundColor: '#ffd74088', borderColor: '#ffd740', borderWidth: 1, borderRadius: 4 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', align: 'end', labels: { color: '#8888b0', padding: 12, font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } },
+                        tooltip: { backgroundColor: '#16162a', titleColor: '#eeeeff', bodyColor: '#8888b0', borderColor: 'rgba(255,255,255,0.06)', borderWidth: 1, padding: 10, cornerRadius: 8 }
+                    },
+                    scales: {
+                        x: { grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false }, ticks: { color: '#505070', maxTicksLimit: 10, font: { size: 10 } } },
+                        y: { grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false }, ticks: { color: '#505070', font: { size: 10 } }, beginAtZero: true, precision: 0 }
+                    }
+                }
+            });
+        },
+
+        /* ── USERS ── */
+
         async renderUsers(container) {
+            if (adminChart) { adminChart.destroy(); adminChart = null }
             container.innerHTML = '';
             container.appendChild(this.h('div', { className: 'page-header' },
                 this.h('h1', {}, this.h('i', { className: 'fas fa-users' }), ' Gestion des utilisateurs')
@@ -152,8 +206,8 @@
                 <th><i class="fas fa-euro-sign"></i> Objectif</th>
                 <th><i class="far fa-calendar"></i> Créé le</th>
                 <th><i class="fas fa-tools"></i> Actions</th>
-            </tr></thead><tbody id="userTableBody"></tbody>`;
-            const tbody = table.querySelector('#userTableBody');
+            </tr></thead><tbody></tbody>`;
+            const tbody = table.querySelector('tbody');
             const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
             users.forEach(u => {
@@ -165,8 +219,9 @@
                     <td>${u.is_admin ? '<i class="fas fa-shield-halved" style="color:var(--warning)"></i> Oui' : 'Non'}</td>
                     <td>${u.goal.toFixed(2)}€</td>
                     <td style="font-size:0.8rem;color:var(--text-muted)">${u.created_at ? u.created_at.slice(0,10) : '-'}</td>
-                    <td style="display:flex;gap:4px">
+                    <td style="display:flex;gap:4px;flex-wrap:wrap">
                         ${!u.is_admin ? `<button class="btn btn-ghost btn-xs btn-icon promote-btn" data-id="${u.id}" title="Promouvoir admin" style="color:var(--warning)"><i class="fas fa-shield"></i></button>` : ''}
+                        <button class="btn btn-ghost btn-xs btn-icon reset-pwd-btn" data-id="${u.id}" title="Réinitialiser mot de passe" style="color:var(--accent)"><i class="fas fa-key"></i></button>
                         <button class="btn btn-ghost btn-xs btn-icon delete-user-btn" data-id="${u.id}" title="Supprimer" style="color:var(--danger)" ${u.id === currentUser.id ? 'disabled' : ''}><i class="fas fa-trash-can"></i></button>
                     </td>
                 `;
@@ -178,6 +233,8 @@
                         if (result) { this.toast('Utilisateur promu admin', 'success'); this.renderUsers(container); }
                     });
                 }
+                const resetPwdBtn = tr.querySelector('.reset-pwd-btn');
+                resetPwdBtn.addEventListener('click', () => this.showResetPasswordModal(u, container));
                 const deleteBtn = tr.querySelector('.delete-user-btn');
                 if (deleteBtn) {
                     deleteBtn.addEventListener('click', async () => {
@@ -192,6 +249,259 @@
             container.appendChild(tc);
         },
 
+        showResetPasswordModal(user, container) {
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            overlay.innerHTML = `
+                <div class="modal">
+                    <h2><i class="fas fa-key"></i> Réinitialiser le mot de passe</h2>
+                    <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:16px">
+                        Nouveau mot de passe pour <strong>${this.esc(user.email)}</strong>
+                    </p>
+                    <form id="resetPwdForm">
+                        <div class="form-group">
+                            <label><i class="fas fa-lock"></i> Nouveau mot de passe</label>
+                            <input type="text" id="newPassword" placeholder="Min 6 caractères" required minlength="6">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-ghost" id="cancelReset"><i class="fas fa-times"></i> Annuler</button>
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Enregistrer</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            overlay.querySelector('#cancelReset').addEventListener('click', () => overlay.remove());
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+            overlay.querySelector('#resetPwdForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const newPassword = document.getElementById('newPassword').value.trim();
+                if (newPassword.length < 6) { this.toast('Min 6 caractères', 'error'); return; }
+                const result = await api('/admin/users/' + user.id + '/reset-password', { method: 'PUT', body: JSON.stringify({ newPassword }) });
+                if (result) { overlay.remove(); this.toast('Mot de passe réinitialisé', 'success'); }
+            });
+        },
+
+        /* ── ITEMS ── */
+
+        async renderItems(container) {
+            if (adminChart) { adminChart.destroy(); adminChart = null }
+            container.innerHTML = '';
+            container.appendChild(this.h('div', { className: 'page-header' },
+                this.h('h1', {}, this.h('i', { className: 'fas fa-box' }), ' Tous les articles')
+            ));
+
+            const items = await api('/admin/items');
+            if (!items || !items.length) {
+                container.innerHTML += `<div class="empty-state"><i class="fas fa-box-open"></i><p>Aucun article</p></div>`;
+                return;
+            }
+
+            const filterBar = this.h('div', { className: 'filter-bar' });
+            filterBar.innerHTML = `
+                <i class="fas fa-search" style="color:var(--text-muted)"></i>
+                <input type="text" id="adminItemSearch" placeholder="Rechercher...">
+                <select id="adminItemStatus">
+                    <option value="all">Tous les statuts</option>
+                    <option value="en_vente">En vente</option>
+                    <option value="vendu">Vendu</option>
+                    <option value="expedie">Expédié</option>
+                    <option value="livre">Livré</option>
+                    <option value="retourne">Retourné</option>
+                </select>
+            `;
+            container.appendChild(filterBar);
+
+            const tc = this.h('div', { className: 'table-container' });
+            tc.innerHTML = `<div class="table-header"><h3><i class="fas fa-list"></i> ${items.length} article(s)</h3></div>`;
+            const table = document.createElement('table');
+            table.innerHTML = `<thead><tr>
+                <th><i class="fas fa-cube"></i> Article</th>
+                <th><i class="fas fa-envelope"></i> Utilisateur</th>
+                <th><i class="fas fa-arrow-down"></i> Achat</th>
+                <th><i class="fas fa-arrow-up"></i> Vente</th>
+                <th><i class="fas fa-percent"></i> Marge</th>
+                <th><i class="fas fa-flag"></i> Statut</th>
+                <th><i class="far fa-calendar"></i> Date</th>
+                <th><i class="fas fa-tools"></i> Actions</th>
+            </tr></thead><tbody id="adminItemBody"></tbody>`;
+            tc.appendChild(table);
+            container.appendChild(tc);
+
+            const doFilter = () => this.renderItemTable(items);
+            document.getElementById('adminItemSearch').addEventListener('input', doFilter);
+            document.getElementById('adminItemStatus').addEventListener('change', doFilter);
+            this.renderItemTable(items);
+        },
+
+        renderItemTable(items) {
+            const tbody = document.getElementById('adminItemBody');
+            if (!tbody) return;
+            const query = (document.getElementById('adminItemSearch')?.value || '').toLowerCase();
+            const statusFilter = document.getElementById('adminItemStatus')?.value || 'all';
+
+            let filtered = items;
+            if (statusFilter !== 'all') filtered = filtered.filter(i => i.status === statusFilter);
+            if (query) filtered = filtered.filter(i => i.name.toLowerCase().includes(query) || (i.user_email || '').toLowerCase().includes(query));
+
+            if (!filtered.length) {
+                tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="fas fa-box-open"></i><p>Aucun résultat</p></div></td></tr>`;
+                return;
+            }
+
+            const statusIcons = { en_vente: 'fa-clock', vendu: 'fa-check-circle', expedie: 'fa-shipping-fast', livre: 'fa-home', retourne: 'fa-undo' };
+            const statusLabels = { en_vente: 'En vente', vendu: 'Vendu', expedie: 'Expédié', livre: 'Livré', retourne: 'Retourné' };
+
+            tbody.innerHTML = '';
+            filtered.forEach(item => {
+                const margin = item.sellingPrice - item.purchasePrice;
+                const marginPct = item.purchasePrice > 0 ? ((margin / item.purchasePrice) * 100).toFixed(0) : '-';
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight:600">${this.esc(item.name)}</td>
+                    <td style="font-size:0.8rem;color:var(--text-muted)"><i class="fas fa-envelope" style="font-size:0.65rem;margin-right:4px"></i>${this.esc(item.user_email || '?')}</td>
+                    <td style="color:var(--danger)">${this.fmt(item.purchasePrice)}</td>
+                    <td style="color:var(--success)">${this.fmt(item.sellingPrice)}</td>
+                    <td style="color:${margin >= 0 ? 'var(--success)' : 'var(--danger)'};font-weight:700">${margin >= 0 ? '+' : ''}${this.fmt(margin)} (${marginPct}%)</td>
+                    <td><span class="status-badge ${item.status}"><i class="fas ${statusIcons[item.status] || 'fa-circle'}"></i> ${statusLabels[item.status] || item.status}</span></td>
+                    <td style="font-size:0.8rem">${this.fmtDate(item.dateAdded)}</td>
+                    <td><button class="btn btn-ghost btn-xs btn-icon delete-admin-item" data-id="${item.id}" style="color:var(--danger)"><i class="fas fa-trash-can"></i></button></td>
+                `;
+                tr.querySelector('.delete-admin-item').addEventListener('click', async () => {
+                    if (!confirm('Supprimer cet article ?')) return;
+                    const result = await api('/admin/items/' + item.id, { method: 'DELETE' });
+                    if (result) { this.toast('Article supprimé', 'info'); this.renderItems(document.getElementById('page-content')); }
+                });
+                tbody.appendChild(tr);
+            });
+        },
+
+        /* ── TRANSACTIONS ── */
+
+        async renderTransactions(container) {
+            if (adminChart) { adminChart.destroy(); adminChart = null }
+            container.innerHTML = '';
+            container.appendChild(this.h('div', { className: 'page-header' },
+                this.h('h1', {}, this.h('i', { className: 'fas fa-receipt' }), ' Toutes les transactions')
+            ));
+
+            const txns = await api('/admin/transactions');
+            if (!txns || !txns.length) {
+                container.innerHTML += `<div class="empty-state"><i class="fas fa-receipt"></i><p>Aucune transaction</p></div>`;
+                return;
+            }
+
+            const filterBar = this.h('div', { className: 'filter-bar' });
+            filterBar.innerHTML = `
+                <i class="fas fa-search" style="color:var(--text-muted)"></i>
+                <input type="text" id="adminTxnSearch" placeholder="Rechercher...">
+                <select id="adminTxnType">
+                    <option value="all">Tous les types</option>
+                    <option value="revenu">Revenu</option>
+                    <option value="depense">Dépense</option>
+                </select>
+            `;
+            container.appendChild(filterBar);
+
+            const tc = this.h('div', { className: 'table-container' });
+            tc.innerHTML = `<div class="table-header"><h3><i class="fas fa-list"></i> ${txns.length} transaction(s)</h3></div>`;
+            const table = document.createElement('table');
+            table.innerHTML = `<thead><tr>
+                <th><i class="far fa-calendar"></i> Date</th>
+                <th><i class="fas fa-tag"></i> Description</th>
+                <th><i class="fas fa-folder"></i> Catégorie</th>
+                <th><i class="fas fa-envelope"></i> Utilisateur</th>
+                <th><i class="fas fa-exchange-alt"></i> Type</th>
+                <th><i class="fas fa-euro-sign"></i> Montant</th>
+                <th><i class="fas fa-tools"></i> Actions</th>
+            </tr></thead><tbody id="adminTxnBody"></tbody>`;
+            tc.appendChild(table);
+            container.appendChild(tc);
+
+            const doFilter = () => this.renderTransactionTable(txns);
+            document.getElementById('adminTxnSearch').addEventListener('input', doFilter);
+            document.getElementById('adminTxnType').addEventListener('change', doFilter);
+            this.renderTransactionTable(txns);
+        },
+
+        renderTransactionTable(txns) {
+            const tbody = document.getElementById('adminTxnBody');
+            if (!tbody) return;
+            const query = (document.getElementById('adminTxnSearch')?.value || '').toLowerCase();
+            const typeFilter = document.getElementById('adminTxnType')?.value || 'all';
+
+            let filtered = txns;
+            if (typeFilter !== 'all') filtered = filtered.filter(t => t.type === typeFilter);
+            if (query) filtered = filtered.filter(t => (t.description || '').toLowerCase().includes(query) || (t.user_email || '').toLowerCase().includes(query));
+
+            if (!filtered.length) {
+                tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="fas fa-receipt"></i><p>Aucun résultat</p></div></td></tr>`;
+                return;
+            }
+
+            const catIcons = { vente: 'fa-store', achat: 'fa-cart-shopping', frais_port: 'fa-truck', commission: 'fa-percent', autre: 'fa-circle' };
+            const catLabels = { vente: 'Vente', achat: 'Achat', frais_port: 'Frais port', commission: 'Commission', autre: 'Autre' };
+
+            tbody.innerHTML = '';
+            filtered.forEach(t => {
+                const isRevenue = t.type === 'revenu';
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-size:0.8rem">${this.fmtDate(t.date)}</td>
+                    <td>${this.esc(t.description || '-')}</td>
+                    <td style="font-size:0.8rem"><i class="fas ${catIcons[t.category] || 'fa-circle'}" style="color:var(--text-muted);margin-right:4px"></i> ${catLabels[t.category] || t.category}</td>
+                    <td style="font-size:0.8rem;color:var(--text-muted)">${this.esc(t.user_email || '?')}</td>
+                    <td><span class="status-badge ${isRevenue ? 'vendu' : 'retourne'}"><i class="fas ${isRevenue ? 'fa-check' : 'fa-times'}"></i> ${isRevenue ? 'Revenu' : 'Dépense'}</span></td>
+                    <td style="color:${isRevenue ? 'var(--success)' : 'var(--danger)'};font-weight:700">${isRevenue ? '+' : '-'}${this.fmt(t.amount)}</td>
+                    <td><button class="btn btn-ghost btn-xs btn-icon delete-admin-txn" data-id="${t.id}" style="color:var(--danger)"><i class="fas fa-trash-can"></i></button></td>
+                `;
+                tr.querySelector('.delete-admin-txn').addEventListener('click', async () => {
+                    if (!confirm('Supprimer cette transaction ?')) return;
+                    const result = await api('/admin/transactions/' + t.id, { method: 'DELETE' });
+                    if (result) { this.toast('Transaction supprimée', 'info'); this.renderTransactions(document.getElementById('page-content')); }
+                });
+                tbody.appendChild(tr);
+            });
+        },
+
+        /* ── EXPORT ── */
+
+        renderExport(container) {
+            if (adminChart) { adminChart.destroy(); adminChart = null }
+            container.innerHTML = '';
+            container.appendChild(this.h('div', { className: 'page-header' },
+                this.h('h1', {}, this.h('i', { className: 'fas fa-download' }), ' Export des données')
+            ));
+
+            const card = this.h('div', { className: 'form-card' });
+            card.innerHTML = `<div class="form-title"><i class="fas fa-file-csv"></i> Télécharger les données (CSV)</div>
+                <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:16px">
+                    Exporte les données au format CSV pour les ouvrir dans Excel ou Google Sheets.
+                </p>`;
+            const btns = this.h('div', { className: 'export-buttons' });
+            btns.innerHTML = `
+                <a href="${API}/admin/export/users" class="btn btn-primary" target="_blank"><i class="fas fa-users"></i> Utilisateurs</a>
+                <a href="${API}/admin/export/items" class="btn btn-primary" target="_blank"><i class="fas fa-box"></i> Articles</a>
+                <a href="${API}/admin/export/transactions" class="btn btn-primary" target="_blank"><i class="fas fa-receipt"></i> Transactions</a>
+            `;
+            card.appendChild(btns);
+            container.appendChild(card);
+
+            const info = this.h('div', { className: 'form-card', style: 'margin-top:16px' });
+            info.innerHTML = `<div class="form-title"><i class="fas fa-info-circle"></i> Informations</div>
+                <p style="color:var(--text-secondary);font-size:0.85rem">
+                    <i class="fas fa-circle" style="font-size:0.4rem;color:var(--accent);margin-right:6px"></i>
+                    Les fichiers CSV sont encodés en UTF-8 avec BOM (compatible Excel)<br>
+                    <i class="fas fa-circle" style="font-size:0.4rem;color:var(--accent);margin-right:6px"></i>
+                    Séparateur : point-virgule (;)<br>
+                    <i class="fas fa-circle" style="font-size:0.4rem;color:var(--accent);margin-right:6px"></i>
+                    Les données incluent tous les utilisateurs de la plateforme
+                </p>`;
+            container.appendChild(info);
+        },
+
+        /* ── UTILS ── */
+
         h(tag, attrs, ...children) {
             const el = document.createElement(tag);
             if (attrs) { for (const [k, v] of Object.entries(attrs)) { if (k === 'className') el.className = v; else el.setAttribute(k, v); } }
@@ -200,6 +510,8 @@
         },
 
         esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; },
+        fmt(n) { return parseFloat(n || 0).toFixed(2) + ' €'; },
+        fmtDate(d) { if (!d) return '-'; const p = d.split('T')[0].split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : d; },
 
         toast(msg, type = 'info') {
             let container = document.getElementById('toastContainer');
