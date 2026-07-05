@@ -24,9 +24,13 @@ app.use(express.json());
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/api/health', (req, res) => {
-  const adminUser = get('SELECT id, email, is_admin FROM users WHERE email = ?', ['admin@vinteddashboard.com']);
-  res.json({ status: 'ok', admin_exists: !!adminUser, admin: adminUser || null });
+app.get('/api/health', async (req, res) => {
+  try {
+    const adminUser = await get('SELECT id, email, is_admin FROM users WHERE email = ?', ['admin@vinteddashboard.com']);
+    res.json({ status: 'ok', admin_exists: !!adminUser, admin: adminUser || null });
+  } catch (err) {
+    res.json({ status: 'db_not_ready', error: err.message });
+  }
 });
 
 app.use('/api/auth', authRoutes);
@@ -51,13 +55,13 @@ async function start() {
   await getDb();
 
   const adminEmail = 'admin@vinteddashboard.com';
-  const existing = get('SELECT id FROM users WHERE email = ?', [adminEmail]);
+  const existing = await get('SELECT id FROM users WHERE email = ?', [adminEmail]);
   if (!existing) {
     const hashed = await bcrypt.hash('admin123', 10);
-    run('INSERT INTO users (email, password, verified, is_admin) VALUES (?, ?, 1, 1)', [adminEmail, hashed]);
+    await run('INSERT INTO users (email, password, verified, is_admin) VALUES (?, ?, 1, 1)', [adminEmail, hashed]);
     console.log('Compte admin créé : admin@vinteddashboard.com / admin123');
   } else {
-    run('UPDATE users SET is_admin = 1, verified = 1 WHERE email = ?', [adminEmail]);
+    await run('UPDATE users SET is_admin = 1, verified = 1 WHERE email = ?', [adminEmail]);
     console.log('Compte admin existant mis à jour');
   }
 

@@ -32,14 +32,14 @@ router.post('/register', async (req, res) => {
     if (password.length < 6) return res.status(400).json({ error: 'Mot de passe : minimum 6 caractères' });
 
     await getDb();
-    const existing = get('SELECT id FROM users WHERE email = ?', [email]);
+    const existing = await get('SELECT id FROM users WHERE email = ?', [email]);
     if (existing) return res.status(409).json({ error: 'Cet email est déjà utilisé' });
 
     const hashed = await bcrypt.hash(password, 10);
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
 
-    run('INSERT INTO users (email, password, verification_code) VALUES (?, ?, ?)', [email, hashed, code]);
+    await run('INSERT INTO users (email, password, verification_code) VALUES (?, ?, ?)', [email, hashed, code]);
 
     console.log(' CODE: ' + email + ' -> ' + code);
     sendEmail({
@@ -61,7 +61,7 @@ router.post('/verify', async (req, res) => {
     const { email, code } = req.body;
     if (!email || !code) return res.status(400).json({ error: 'Email et code requis' });
 
-    const user = get('SELECT * FROM users WHERE email = ?', [email]);
+    const user = await get('SELECT * FROM users WHERE email = ?', [email]);
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
     if (user.verified) return res.json({ message: 'Déjà vérifié' });
 
@@ -69,7 +69,7 @@ router.post('/verify', async (req, res) => {
       return res.status(400).json({ error: 'Code invalide' });
     }
 
-    run('UPDATE users SET verified = 1, verification_code = NULL WHERE id = ?', [user.id]);
+    await run('UPDATE users SET verified = 1, verification_code = NULL WHERE id = ?', [user.id]);
     res.json({ message: 'Email vérifié ! Tu peux maintenant te connecter.' });
   } catch (err) {
     console.error(err);
@@ -83,7 +83,7 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
 
-    const user = get('SELECT * FROM users WHERE email = ?', [email]);
+    const user = await get('SELECT * FROM users WHERE email = ?', [email]);
     if (!user) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
 
     if (!user.verified) return res.status(403).json({ error: 'Vérifie ton email avant de te connecter' });
@@ -106,7 +106,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', auth, async (req, res) => {
   try {
     await getDb();
-    const user = get('SELECT id, email, goal, currency, created_at FROM users WHERE id = ?', [req.userId]);
+    const user = await get('SELECT id, email, goal, currency, created_at FROM users WHERE id = ?', [req.userId]);
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
     res.json(user);
   } catch (err) {
@@ -119,12 +119,12 @@ router.post('/resend-code', async (req, res) => {
     await getDb();
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email requis' });
-    const user = get('SELECT * FROM users WHERE email = ?', [email]);
+    const user = await get('SELECT * FROM users WHERE email = ?', [email]);
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
     if (user.verified) return res.json({ message: 'Déjà vérifié' });
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    run('UPDATE users SET verification_code = ? WHERE id = ?', [code, user.id]);
+    await run('UPDATE users SET verification_code = ? WHERE id = ?', [code, user.id]);
 
     console.log(' CODE RESEND: ' + email + ' -> ' + code);
     sendEmail({
