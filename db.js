@@ -115,10 +115,11 @@ function saveDb() {
   }
 }
 
+let pgCounter = 0;
 function pgSql(sql) {
-  return sql.replace(/\?/g, () => '$' + (++((pgSql)._c || (pgSql)._c = 0)));
+  return sql.replace(/\?/g, () => '$' + (++pgCounter));
 }
-function pgReset() { (pgSql)._c = 0 }
+function pgReset() { pgCounter = 0 }
 
 async function query(sql, params = []) {
   if (pgPool) {
