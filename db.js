@@ -115,9 +115,15 @@ function saveDb() {
   }
 }
 
+function pgSql(sql) {
+  return sql.replace(/\?/g, () => '$' + (++((pgSql)._c || (pgSql)._c = 0)));
+}
+function pgReset() { (pgSql)._c = 0 }
+
 async function query(sql, params = []) {
   if (pgPool) {
-    const res = await pgPool.query(sql, params);
+    pgReset();
+    const res = await pgPool.query(pgSql(sql), params);
     return res.rows;
   }
   const stmt = sqlDb.prepare(sql);
@@ -135,7 +141,8 @@ async function query(sql, params = []) {
 
 async function get(sql, params = []) {
   if (pgPool) {
-    const res = await pgPool.query(sql, params);
+    pgReset();
+    const res = await pgPool.query(pgSql(sql), params);
     return res.rows[0] || null;
   }
   const stmt = sqlDb.prepare(sql);
@@ -148,7 +155,8 @@ async function get(sql, params = []) {
 
 async function run(sql, params = []) {
   if (pgPool) {
-    const res = await pgPool.query(sql, params);
+    pgReset();
+    const res = await pgPool.query(pgSql(sql), params);
     return { changes: res.rowCount, lastInsertRowid: res.rows[0]?.id };
   }
   sqlDb.run(sql, params);
