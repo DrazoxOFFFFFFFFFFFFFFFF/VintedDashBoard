@@ -5,37 +5,60 @@ const auth = require('../middleware/auth');
 const router = express.Router();
 router.use(auth);
 
-/* Scrape URL for metadata */
+const LOVE_API = 'https://www.lovegobuy.com/index.php?s=/api/goods/detail';
+
+/* Scrape LoveGoBuy product URL */
 router.post('/scrape', async (req, res) => {
   try {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'URL requise' });
 
-    const resp = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      signal: AbortSignal.timeout(8000)
-    });
-    const html = await resp.text();
+    /* Extract id & shop_type from lovegobuy.com/product?id=X&shop_type=Y */
+    let goodsId, shopType = 'taobao';
+    try {
+      const u = new URL(url);
+      if (u.hostname.includes('lovegobuy')) {
+        goodsId = u.searchParams.get('id') || u.searchParams.get('goodsId');
+        shopType = u.searchParams.get('shop_type') || 'taobao';
+      }
+    } catch (e) {}
 
-    const og = {};
-    const meta = html.match(/<meta[^>]+>/gi) || [];
-    for (const m of meta) {
-      const p = m.match(/property=["']([^"']+)["']/);
-      const n = m.match(/name=["']([^"']+)["']/);
-      const c = m.match(/content=["']([^"']+)["']/);
-      const key = (p || n)?.[1];
-      if (key && c) og[key] = c[1];
+    if (!goodsId) {
+      return res.json({ title: '', price: 0, image: '', stock_info: '' });
     }
 
-    const title = og['og:title'] || og['twitter:title'] || html.match(/<title>([^<]+)<\/title>/)?.[1] || '';
-    const image = og['og:image'] || og['twitter:image'] || '';
-    const description = og['og:description'] || og['twitter:description'] || og['description'] || '';
-    const price = og['product:price:amount'] || og['og:price:amount'] || '';
-    const availability = og['product:availability'] || og['og:availability'] || '';
+    const resp = await fetch(`${LOVE_API}&goodsId=${goodsId}&shop_type=${shopType}`, {
+      signal: AbortSignal.timeout(10000)
+    });
+    const data = await resp.json();
+    if (!data || data.status !== 200 || !data.data || !data.data.detail) {
+      return res.json({ title: '', price: 0, image: '', stock_info: '' });
+    }
 
-    res.json({ title: title.trim(), image, description: description.trim(), price: parseFloat(price) || 0, availability });
+    const d = data.data.detail;
+    const title = (d.goods_name || '').trim();
+    const image = d.goods_image || (d.goods_images && d.goods_images[0]?.preview_url) || '';
+    const stock = d.stock_total != null ? (parseInt(d.stock_total) > 0 ? 'En stock' : 'Rupture') : '';
+
+    /* Convert price from USD to EUR via Frankfurter API */
+    let priceEur = 0;
+    if (d.goods_price_min_show) {
+      const usd = parseFloat(d.goods_price_min_show.replace(/[^0-9.]/g, ''));
+      if (usd > 0) {
+        try {
+          const fx = await fetch('https://api.frankfurter.app/latest?from=USD&to=EUR', { signal: AbortSignal.timeout(5000) });
+          const fxData = await fx.json();
+          const rate = fxData.rates?.EUR || 0.92;
+          priceEur = Math.round(usd * rate * 100) / 100;
+        } catch (e) {
+          priceEur = Math.round(usd * 0.92 * 100) / 100;
+        }
+      }
+    }
+
+    res.json({ title, price: priceEur, image, stock_info: stock });
   } catch (err) {
-    res.json({ title: '', image: '', description: '', price: 0, availability: '' });
+    res.json({ title: '', price: 0, image: '', stock_info: '' });
   }
 });
 

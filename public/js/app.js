@@ -626,21 +626,12 @@ const App = {
         this.h('h1', {}, this.h('i', { className: 'fas fa-truck' }), ' Fournisseurs')
       ));
 
-      const searchBar = this.h('div', { style: 'display:flex;gap:12px;margin-bottom:20px;max-width:900px;margin-left:auto;margin-right:auto' });
+      const searchBar = this.h('div', { style: 'display:flex;margin-bottom:20px;max-width:900px;margin-left:auto;margin-right:auto' });
       searchBar.innerHTML = `
         <div class="search-box" style="flex:1">
           <i class="fas fa-search"></i>
           <input type="text" id="supplierSearch" placeholder="Rechercher un fournisseur..." style="width:100%">
         </div>
-        <select id="supplierCategory" class="filter-select">
-          <option value="all">Toutes catégories</option>
-          <option value="general">Général</option>
-          <option value="vetements">Vêtements</option>
-          <option value="chaussures">Chaussures</option>
-          <option value="accessoires">Accessoires</option>
-          <option value="electronique">Électronique</option>
-          <option value="maison">Maison</option>
-        </select>
       `;
       container.appendChild(searchBar);
 
@@ -654,9 +645,7 @@ const App = {
       }
 
       this.suppliers = data;
-      const doFilter = () => this.renderSupplierGrid();
-      document.getElementById('supplierSearch').addEventListener('input', doFilter);
-      document.getElementById('supplierCategory').addEventListener('change', doFilter);
+      document.getElementById('supplierSearch').addEventListener('input', () => this.renderSupplierGrid());
       this.renderSupplierGrid();
     },
 
@@ -664,10 +653,8 @@ const App = {
       const grid = document.getElementById('supplierGrid');
       if (!grid) return;
       const query = (document.getElementById('supplierSearch')?.value || '').toLowerCase();
-      const cat = document.getElementById('supplierCategory')?.value || 'all';
 
       let items = this.suppliers;
-      if (cat !== 'all') items = items.filter(s => s.category === cat);
       if (query) items = items.filter(s => (s.name || '').toLowerCase().includes(query));
 
       if (!items.length) {
@@ -682,12 +669,10 @@ const App = {
         card.innerHTML = imgHtml + `
           <div style="padding:14px">
             <h3 style="font-size:0.95rem;font-weight:600;margin:0 0 4px;color:var(--text-primary)">${this.esc(s.name)}</h3>
-
             ${s.price > 0 ? `<div style="font-size:1.1rem;font-weight:700;color:var(--accent);margin-bottom:8px">${s.price.toFixed(2)} €</div>` : ''}
             <div style="display:flex;gap:6px;flex-wrap:wrap">
-              ${s.url ? `<a href="${this.esc(s.url)}" target="_blank" class="btn btn-primary btn-xs" style="flex:1;justify-content:center;text-decoration:none"><i class="fas fa-external-link-alt"></i> Voir l'offre</a>` : ''}
-              ${s.stock_info ? `<span class="status-badge ${s.stock_info === 'en_stock' || s.stock_info === 'in_stock' ? 'vendu' : 'retourne'}"><i class="fas ${s.stock_info === 'en_stock' || s.stock_info === 'in_stock' ? 'fa-check' : 'fa-clock'}"></i> ${s.stock_info}</span>` : ''}
-              ${s.category !== 'general' ? `<span class="status-badge" style="background:var(--accent-glow)"><i class="fas fa-tag"></i> ${s.category}</span>` : ''}
+              ${s.url ? `<a href="${this.esc(s.url)}" target="_blank" class="btn btn-primary btn-xs" style="flex:1;justify-content:center;text-decoration:none"><i class="fas fa-external-link-alt"></i> Voir sur LoveGoBuy</a>` : ''}
+              ${s.stock_info ? `<span class="status-badge" style="background:var(--success-bg, #0f2d1f);color:var(--success, #4ade80)"><i class="fas fa-check"></i> ${this.esc(s.stock_info)}</span>` : ''}
             </div>
           </div>`;
         grid.appendChild(card);

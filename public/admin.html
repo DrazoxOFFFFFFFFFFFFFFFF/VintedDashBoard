@@ -476,44 +476,17 @@
             ));
 
             const addCard = this.h('div', { className: 'form-card', id: 'addSupplierCard' });
-            addCard.innerHTML = `<div class="form-title"><i class="fas fa-plus-circle"></i> Ajouter un fournisseur</div>
+            addCard.innerHTML = `<div class="form-title"><i class="fas fa-plus-circle"></i> Ajouter un fournisseur LoveGoBuy</div>
                 <form id="supplierForm">
-                    <div class="form-row">
-                        <div class="form-group" style="flex:2">
-                            <label><i class="fas fa-tag"></i> Nom du produit</label>
-                            <input type="text" id="supName" placeholder="Ex: Nike Air Max 90" required>
-                        </div>
-                        <div class="form-group" style="flex:1">
-                            <label><i class="fas fa-euro-sign"></i> Prix</label>
-                            <input type="number" id="supPrice" placeholder="0.00" step="0.01" min="0">
-                        </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-tag"></i> Titre du produit</label>
+                        <input type="text" id="supName" placeholder="Ex: Nike Air Max 90" required>
                     </div>
                     <div class="form-group">
-                        <label><i class="fas fa-link"></i> Lien du produit</label>
-                        <input type="url" id="supUrl" placeholder="https://..." style="width:100%">
+                        <label><i class="fas fa-link"></i> Lien LoveGoBuy</label>
+                        <input type="url" id="supUrl" placeholder="https://www.lovegobuy.com/product?id=...">
                     </div>
                     <div id="scrapeResult" style="display:none;background:var(--accent-glow);border:1px solid var(--accent);border-radius:8px;padding:10px;margin:8px 0;font-size:0.8rem"></div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label><i class="fas fa-image"></i> Image (URL)</label>
-                            <input type="url" id="supImage" placeholder="https://...">
-                        </div>
-                        <div class="form-group">
-                            <label><i class="fas fa-folder"></i> Catégorie</label>
-                            <select id="supCategory">
-                                <option value="general">Général</option>
-                                <option value="vetements">Vêtements</option>
-                                <option value="chaussures">Chaussures</option>
-                                <option value="accessoires">Accessoires</option>
-                                <option value="electronique">Électronique</option>
-                                <option value="maison">Maison</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group" style="margin:0">
-                        <label><i class="fas fa-info-circle"></i> Stock</label>
-                        <input type="text" id="supStock" placeholder="Ex: En stock, 5 disponibles...">
-                    </div>
                     <div class="form-actions" style="margin-top:16px">
                         <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Ajouter</button>
                     </div>
@@ -530,25 +503,31 @@
         },
 
         async bindSupplierForm() {
+            let scraped = {};
+
             const urlInput = document.getElementById('supUrl');
             if (urlInput) {
                 let scrapeTimer;
                 urlInput.addEventListener('input', () => {
                     clearTimeout(scrapeTimer);
                     const url = urlInput.value.trim();
-                    if (!url || !url.startsWith('http')) return;
+                    if (!url || !url.startsWith('http') || !url.includes('lovegobuy')) return;
                     scrapeTimer = setTimeout(async () => {
                         const box = document.getElementById('scrapeResult');
                         box.style.display = 'block';
-                        box.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scraping en cours...';
+                        box.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Récupération...';
                         const result = await api('/suppliers/scrape', { method: 'POST', body: JSON.stringify({ url }) });
-                        if (!result) { box.innerHTML = '<i class="fas fa-circle-xmark" style="color:var(--danger)"></i> Erreur de scraping'; return; }
-                        let html = '';
-                        if (result.title) { html += '<b>Nom:</b> ' + result.title + '<br>'; document.getElementById('supName').value = result.title; }
-                        if (result.price) { html += '<b>Prix:</b> ' + result.price + ' €<br>'; document.getElementById('supPrice').value = result.price; }
-                        if (result.image) { html += '<b>Image:</b> trouvée ✓<br>'; document.getElementById('supImage').value = result.image; }
-                        if (result.availability) { html += '<b>Dispo:</b> ' + result.availability; document.getElementById('supStock').value = result.availability; }
-                        if (!html) html = 'Aucune info récupérée.';
+                        if (!result || !result.title) {
+                            box.innerHTML = '<i class="fas fa-circle-xmark" style="color:var(--danger)"></i> Aucune info trouvée';
+                            return;
+                        }
+                        scraped = result;
+                        if (!document.getElementById('supName').value) {
+                            document.getElementById('supName').value = result.title;
+                        }
+                        let html = `<b>Prix:</b> ${result.price} €`;
+                        if (result.image) html += ' · <b>Image:</b> ✓';
+                        if (result.stock_info) html += ` · <b>Stock:</b> ${result.stock_info}`;
                         box.innerHTML = '<i class="fas fa-circle-check" style="color:var(--success)"></i> ' + html;
                     }, 800);
                 });
@@ -558,18 +537,24 @@
             if (form) {
                 form.addEventListener('submit', async (e) => {
                     e.preventDefault();
+                    const name = document.getElementById('supName').value.trim();
+                    const url = document.getElementById('supUrl').value.trim();
+                    if (!name) { this.toast('Titre requis', 'error'); return; }
+                    if (!scraped.title && !scraped.price) {
+                        this.toast('Colle d\'abord un lien LoveGoBuy pour le scraping', 'error');
+                        return;
+                    }
                     const data = {
-                        name: document.getElementById('supName').value.trim(),
-                        url: document.getElementById('supUrl').value.trim(),
-                        price: parseFloat(document.getElementById('supPrice').value) || 0,
-                        image_url: document.getElementById('supImage').value.trim(),
-                        stock_info: document.getElementById('supStock').value.trim(),
-                        category: document.getElementById('supCategory').value
+                        name,
+                        url,
+                        price: scraped.price || 0,
+                        image_url: scraped.image || '',
+                        stock_info: scraped.stock_info || ''
                     };
-                    if (!data.name) { this.toast('Nom requis', 'error'); return; }
                     const result = await api('/suppliers', { method: 'POST', body: JSON.stringify(data) });
                     if (!result) return;
                     form.reset();
+                    scraped = {};
                     document.getElementById('scrapeResult').style.display = 'none';
                     this.toast('Fournisseur ajouté', 'success');
                     this.loadSupplierTable();
@@ -592,7 +577,7 @@
                 <th><i class="fas fa-tag"></i> Nom</th>
                 <th><i class="fas fa-link"></i> Lien</th>
                 <th><i class="fas fa-euro-sign"></i> Prix</th>
-                <th><i class="fas fa-folder"></i> Catégorie</th>
+                <th><i class="fas fa-box"></i> Stock</th>
                 <th><i class="fas fa-eye"></i> Visible</th>
                 <th><i class="fas fa-tools"></i> Actions</th>
             </tr></thead><tbody></tbody>`;
@@ -605,7 +590,7 @@
                     <td style="font-weight:600">${this.esc(s.name)}</td>
                     <td>${s.url ? `<a href="${this.esc(s.url)}" target="_blank" style="color:var(--accent);font-size:0.8rem"><i class="fas fa-external-link-alt"></i></a>` : '-'}</td>
                     <td>${s.price > 0 ? s.price.toFixed(2) + ' €' : '-'}</td>
-                    <td style="font-size:0.8rem">${s.category}</td>
+                    <td style="font-size:0.8rem">${this.esc(s.stock_info || '-')}</td>
                     <td>${s.visible ? '<i class="fas fa-check-circle" style="color:var(--success)"></i>' : '<i class="fas fa-times-circle" style="color:var(--danger)"></i>'}</td>
                     <td style="display:flex;gap:4px">
                         <button class="btn btn-ghost btn-xs btn-icon toggle-vis-btn" data-id="${s.id}" data-vis="${s.visible}" title="${s.visible ? 'Masquer' : 'Afficher'}" style="color:var(--accent)"><i class="fas ${s.visible ? 'fa-eye-slash' : 'fa-eye'}"></i></button>
