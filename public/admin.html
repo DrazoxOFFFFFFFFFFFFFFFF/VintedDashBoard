@@ -476,21 +476,31 @@
             ));
 
             const addCard = this.h('div', { className: 'form-card', id: 'addSupplierCard' });
-            addCard.innerHTML = `<div class="form-title"><i class="fas fa-plus-circle"></i> Ajouter un fournisseur LoveGoBuy</div>
+            addCard.innerHTML = `<div class="form-title"><i class="fas fa-plus-circle"></i> Ajouter un fournisseur</div>
                 <form id="supplierForm">
                     <div class="form-group">
-                        <label><i class="fas fa-tag"></i> Titre du produit</label>
+                        <label><i class="fas fa-tag"></i> Titre du produit *</label>
                         <input type="text" id="supName" placeholder="Ex: Nike Air Max 90" required>
                     </div>
                     <div class="form-group">
-                        <label><i class="fas fa-link"></i> Lien LoveGoBuy</label>
+                        <label><i class="fas fa-link"></i> Lien LoveGoBuy / 1688 / Taobao</label>
                         <input type="text" id="supUrl" placeholder="https://www.lovegobuy.com/product?id=...">
                     </div>
-                    <div id="scrapeResult" style="display:none;background:var(--accent-glow);border:1px solid var(--accent);border-radius:8px;padding:10px;margin:8px 0;font-size:0.8rem"></div>
-                    <div class="form-group">
-                        <label><i class="fas fa-euro-sign"></i> Prix manuel (si scraping indisponible)</label>
-                        <input type="number" id="supPrice" placeholder="0.00" step="0.01" min="0">
+                    <div class="form-row" style="display:flex;gap:8px">
+                        <div class="form-group" style="flex:1">
+                            <label><i class="fas fa-euro-sign"></i> Prix (€)</label>
+                            <input type="number" id="supPrice" placeholder="0.00" step="0.01" min="0">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label><i class="fas fa-image"></i> Image (URL)</label>
+                            <input type="text" id="supImage" placeholder="https://...">
+                        </div>
                     </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-box"></i> Infos stock</label>
+                        <input type="text" id="supStock" placeholder="En stock / Rupture">
+                    </div>
+                    <div id="scrapeResult" style="display:none;background:var(--accent-glow);border:1px solid var(--accent);border-radius:8px;padding:10px;margin:8px 0;font-size:0.8rem"></div>
                     <div class="form-actions" style="margin-top:16px">
                         <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Ajouter</button>
                     </div>
@@ -508,27 +518,34 @@
 
         async bindSupplierForm() {
             let scraped = {};
+            const supName = () => document.getElementById('supName');
+            const supUrl = () => document.getElementById('supUrl');
+            const supPrice = () => document.getElementById('supPrice');
+            const supImage = () => document.getElementById('supImage');
+            const supStock = () => document.getElementById('supStock');
+            const scrapeBox = () => document.getElementById('scrapeResult');
 
-            const urlInput = document.getElementById('supUrl');
+            const urlInput = supUrl();
             if (urlInput) {
                 let scrapeTimer;
                 urlInput.addEventListener('input', () => {
                     clearTimeout(scrapeTimer);
                     const url = urlInput.value.trim();
-                    if (!url || !url.startsWith('http') || !url.includes('lovegobuy')) return;
+                    if (!url || !url.startsWith('http')) return;
                     scrapeTimer = setTimeout(async () => {
-                        const box = document.getElementById('scrapeResult');
+                        const box = scrapeBox();
                         box.style.display = 'block';
                         box.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Récupération...';
                         const result = await api('/suppliers/scrape', { method: 'POST', body: JSON.stringify({ url }) });
                         if (!result || !result.title) {
-                            box.innerHTML = '<i class="fas fa-circle-xmark" style="color:var(--danger)"></i> Aucune info trouvée';
+                            box.innerHTML = '<i class="fas fa-circle-xmark" style="color:var(--danger)"></i> Aucune info trouvée - remplis les champs manuellement';
                             return;
                         }
                         scraped = result;
-                        if (!document.getElementById('supName').value) {
-                            document.getElementById('supName').value = result.title;
-                        }
+                        if (!supName().value) supName().value = result.title;
+                        if (!supPrice().value && result.price) supPrice().value = result.price;
+                        if (!supImage().value && result.image) supImage().value = result.image;
+                        if (!supStock().value && result.stock_info) supStock().value = result.stock_info;
                         let html = `<b>Prix:</b> ${result.price} €`;
                         if (result.image) html += ' · <b>Image:</b> ✓';
                         if (result.stock_info) html += ` · <b>Stock:</b> ${result.stock_info}`;
@@ -541,29 +558,21 @@
             if (form) {
                 form.addEventListener('submit', async (e) => {
                     e.preventDefault();
-                    const name = document.getElementById('supName').value.trim();
-                    const url = document.getElementById('supUrl').value.trim();
+                    const name = supName().value.trim();
+                    const url = supUrl().value.trim();
                     if (!name) { this.toast('Titre requis', 'error'); return; }
-                    if (!scraped.title && !scraped.price) {
-                        if (!document.getElementById('supPrice').value) {
-                            this.toast('Colle un lien LoveGoBuy ou entre un prix manuel', 'error');
-                            return;
-                        }
-                    }
-                    const manualPrice = parseFloat(document.getElementById('supPrice').value) || 0;
                     const data = {
                         name,
                         url,
-                        price: scraped.price || manualPrice,
-                        image_url: scraped.image || '',
-                        stock_info: scraped.stock_info || ''
+                        price: scraped.price || parseFloat(supPrice().value) || 0,
+                        image_url: scraped.image || supImage().value.trim() || '',
+                        stock_info: scraped.stock_info || supStock().value.trim() || ''
                     };
                     const result = await api('/suppliers', { method: 'POST', body: JSON.stringify(data) });
                     if (!result) return;
                     form.reset();
-                    document.getElementById('supPrice').value = '';
                     scraped = {};
-                    document.getElementById('scrapeResult').style.display = 'none';
+                    scrapeBox().style.display = 'none';
                     this.toast('Fournisseur ajouté', 'success');
                     this.loadSupplierTable();
                 });

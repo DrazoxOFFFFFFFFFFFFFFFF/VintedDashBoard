@@ -6,53 +6,72 @@ const router = express.Router();
 router.use(auth);
 
 const LOVE_API = 'https://www.lovegobuy.com/index.php?s=/api/goods/detail';
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-async function tryScrapeOriginal(goodsId, shopType) {
-  let platformUrl = '';
-  if (shopType === 'ali_1688' || shopType === '1688') {
-    platformUrl = `https://detail.1688.com/offer/${goodsId}.html`;
-  } else if (shopType === 'taobao') {
-    platformUrl = `https://item.taobao.com/item.htm?id=${goodsId}`;
-  } else if (shopType === 'weidian') {
-    platformUrl = `https://weidian.com/item.html?itemID=${goodsId}`;
-  }
-  if (!platformUrl) return null;
+function extractFromUrl(url) {
   try {
-    const resp = await fetch(platformUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
-      signal: AbortSignal.timeout(8000)
+    const u = new URL(url);
+    /* LoveGoBuy URL */
+    if (u.hostname.includes('lovegobuy')) {
+      return {
+        goodsId: u.searchParams.get('id') || u.searchParams.get('goodsId'),
+        shopType: u.searchParams.get('shop_type') || 'taobao'
+      };
+    }
+    /* 1688 */
+    if (u.hostname.includes('1688.com')) {
+      const m = u.pathname.match(/\/offer\/(\d+)\.html/);
+      return { goodsId: m ? m[1] : u.searchParams.get('offerId'), shopType: 'ali_1688' };
+    }
+    /* Taobao / Tmall */
+    if (u.hostname.includes('taobao.com') || u.hostname.includes('tmall.com')) {
+      return { goodsId: u.searchParams.get('id'), shopType: 'taobao' };
+    }
+    /* Weidian */
+    if (u.hostname.includes('weidian.com')) {
+      return { goodsId: u.searchParams.get('itemID'), shopType: 'weidian' };
+    }
+  } catch (e) {}
+  return { goodsId: null, shopType: 'taobao' };
+}
+
+async function scrapePageMeta(url) {
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
+      },
+      signal: AbortSignal.timeout(10000)
     });
     const html = await resp.text();
-    const titleMatch = html.match(/<title>([^<]*)<\/title>/i);
-    const title = titleMatch ? titleMatch[1].trim().replace(/[-–|].*$/, '').trim() : '';
-    return { title, platformUrl };
+    const title = (html.match(/<title>([^<]*)<\/title>/i) || [])[1] || '';
+    const ogImage = (html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']*)["']/i) || [])[1] || '';
+    const ogTitle = (html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']*)["']/i) || [])[1] || '';
+    return {
+      title: (ogTitle || title).trim().replace(/[-–|].*$/, '').trim(),
+      image: ogImage
+    };
   } catch (e) {
     return null;
   }
 }
 
-/* Scrape LoveGoBuy product URL */
+/* Scrape product info from URL (LoveGoBuy, 1688, Taobao, Weidian) */
 router.post('/scrape', async (req, res) => {
   try {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'URL requise' });
 
-    /* Extract id & shop_type from lovegobuy.com/product?id=X&shop_type=Y */
-    let goodsId, shopType = 'taobao';
-    try {
-      const u = new URL(url);
-      if (u.hostname.includes('lovegobuy')) {
-        goodsId = u.searchParams.get('id') || u.searchParams.get('goodsId');
-        shopType = u.searchParams.get('shop_type') || 'taobao';
-      }
-    } catch (e) {}
-
+    const { goodsId, shopType } = extractFromUrl(url);
     if (!goodsId) {
       return res.json({ title: '', price: 0, image: '', stock_info: '' });
     }
 
+    /* 1) Try LoveGoBuy goods/detail API */
     const resp = await fetch(`${LOVE_API}&goodsId=${goodsId}&shop_type=${shopType}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+      headers: { 'User-Agent': UA },
       signal: AbortSignal.timeout(10000)
     });
     const data = await resp.json();
@@ -77,14 +96,23 @@ router.post('/scrape', async (req, res) => {
           }
         }
       }
-
       return res.json({ title, price: priceEur, image, stock_info: stock });
     }
 
-    /* Fallback: try scraping original platform page */
-    const fallback = await tryScrapeOriginal(goodsId, shopType);
-    if (fallback && fallback.title) {
-      return res.json({ title: fallback.title, price: 0, image: '', stock_info: '' });
+    /* 2) Fallback: scrape meta tags from original platform */
+    let platformUrl = '';
+    if (shopType === 'ali_1688' || shopType === '1688') {
+      platformUrl = `https://detail.1688.com/offer/${goodsId}.html`;
+    } else if (shopType === 'taobao') {
+      platformUrl = `https://item.taobao.com/item.htm?id=${goodsId}`;
+    } else if (shopType === 'weidian') {
+      platformUrl = `https://weidian.com/item.html?itemID=${goodsId}`;
+    }
+    if (platformUrl) {
+      const meta = await scrapePageMeta(platformUrl);
+      if (meta && meta.title) {
+        return res.json({ title: meta.title, price: 0, image: meta.image || '', stock_info: '' });
+      }
     }
 
     return res.json({ title: '', price: 0, image: '', stock_info: '' });
