@@ -622,8 +622,12 @@ const App = {
     renderEnhance(container) {
         container.innerHTML = '';
         container.appendChild(this.h('div', { className: 'page-header' },
-            this.h('h1', {}, this.h('i', { className: 'fas fa-wand-magic-sparkles' }), ' Améliorateur d\'images')
+            this.h('h1', {}, this.h('i', { className: 'fas fa-wand-magic-sparkles' }), ' Amélioration IA')
         ));
+
+        const infoBanner = this.h('div', { style: 'background:var(--accent-glow);border:1px solid var(--accent);border-radius:10px;padding:12px 16px;margin-bottom:20px;max-width:900px;margin-left:auto;margin-right:auto;font-size:0.8rem;color:var(--text-secondary)' });
+        infoBanner.innerHTML = '<i class="fas fa-robot" style="color:var(--accent);margin-right:8px"></i> Suppression IA du fond + nettoyage automatique. Résultat propre, fond dégradé, téléchargement direct.';
+        container.appendChild(infoBanner);
 
         const grid = this.h('div', { className: 'enhance-grid', style: 'display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;margin:0 auto' });
 
