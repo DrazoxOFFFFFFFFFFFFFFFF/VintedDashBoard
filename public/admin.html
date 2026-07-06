@@ -54,6 +54,7 @@
                 <a class="nav-item" data-page="admin-users"><i class="fas fa-users"></i><span>Utilisateurs</span></a>
                 <a class="nav-item" data-page="admin-items"><i class="fas fa-box"></i><span>Articles</span></a>
                 <a class="nav-item" data-page="admin-transactions"><i class="fas fa-receipt"></i><span>Transactions</span></a>
+                <a class="nav-item" data-page="admin-suppliers"><i class="fas fa-truck"></i><span>Fournisseurs</span></a>
                 <a class="nav-item" data-page="admin-export"><i class="fas fa-download"></i><span>Export</span></a>
             </nav>
             <div class="sidebar-footer">
@@ -108,6 +109,7 @@
             else if (page === 'admin-users') this.renderUsers(container);
             else if (page === 'admin-items') this.renderItems(container);
             else if (page === 'admin-transactions') this.renderTransactions(container);
+            else if (page === 'admin-suppliers') this.renderSuppliers(container);
             else if (page === 'admin-export') this.renderExport(container);
         },
 
@@ -465,6 +467,180 @@
         },
 
         /* ── EXPORT ── */
+
+        renderSuppliers(container) {
+            if (adminChart) { adminChart.destroy(); adminChart = null }
+            container.innerHTML = '';
+            container.appendChild(this.h('div', { className: 'page-header' },
+                this.h('h1', {}, this.h('i', { className: 'fas fa-truck' }), ' Gestion des fournisseurs')
+            ));
+
+            const addCard = this.h('div', { className: 'form-card', id: 'addSupplierCard' });
+            addCard.innerHTML = `<div class="form-title"><i class="fas fa-plus-circle"></i> Ajouter un fournisseur</div>
+                <form id="supplierForm">
+                    <div class="form-row">
+                        <div class="form-group" style="flex:2">
+                            <label><i class="fas fa-tag"></i> Nom du produit</label>
+                            <input type="text" id="supName" placeholder="Ex: Nike Air Max 90" required>
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label><i class="fas fa-euro-sign"></i> Prix</label>
+                            <input type="number" id="supPrice" placeholder="0.00" step="0.01" min="0">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-link"></i> Lien du produit</label>
+                        <div style="display:flex;gap:8px">
+                            <input type="url" id="supUrl" placeholder="https://..." style="flex:1">
+                            <button type="button" class="btn btn-ghost btn-sm" id="scrapeBtn"><i class="fas fa-robot"></i> Auto</button>
+                        </div>
+                    </div>
+                    <div id="scrapeResult" style="display:none;background:var(--accent-glow);border:1px solid var(--accent);border-radius:8px;padding:10px;margin:8px 0;font-size:0.8rem"></div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label><i class="fas fa-image"></i> Image (URL)</label>
+                            <input type="url" id="supImage" placeholder="https://...">
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-folder"></i> Catégorie</label>
+                            <select id="supCategory">
+                                <option value="general">Général</option>
+                                <option value="vetements">Vêtements</option>
+                                <option value="chaussures">Chaussures</option>
+                                <option value="accessoires">Accessoires</option>
+                                <option value="electronique">Électronique</option>
+                                <option value="maison">Maison</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-info-circle"></i> Stock / Description</label>
+                        <input type="text" id="supStock" placeholder="Ex: En stock, 5 disponibles...">
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label><i class="fas fa-pen"></i> Description</label>
+                        <textarea id="supDescription" rows="2" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text-primary);font-family:var(--font);font-size:0.8rem;resize:vertical"></textarea>
+                    </div>
+                    <div class="form-actions" style="margin-top:16px">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Ajouter</button>
+                    </div>
+                </form>`;
+            container.appendChild(addCard);
+
+            this.bindSupplierForm();
+
+            const tc = this.h('div', { className: 'table-container', style: 'margin-top:20px' });
+            tc.innerHTML = `<div class="table-header"><h3><i class="fas fa-list"></i> Fournisseurs</h3></div>
+                <div id="adminSupplierWrap"></div>`;
+            container.appendChild(tc);
+            this.loadSupplierTable();
+        },
+
+        async bindSupplierForm() {
+            const scrapeBtn = document.getElementById('scrapeBtn');
+            if (scrapeBtn) {
+                scrapeBtn.addEventListener('click', async () => {
+                    const url = document.getElementById('supUrl').value;
+                    if (!url) { this.toast('Entre un lien d\'abord', 'error'); return; }
+                    scrapeBtn.disabled = true;
+                    scrapeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    const result = await api('/suppliers/scrape', { method: 'POST', body: JSON.stringify({ url }) });
+                    scrapeBtn.disabled = false;
+                    scrapeBtn.innerHTML = '<i class="fas fa-robot"></i> Auto';
+                    if (!result) return;
+                    const box = document.getElementById('scrapeResult');
+                    box.style.display = 'block';
+                    let html = '';
+                    if (result.title) { html += '<b>Nom:</b> ' + result.title + '<br>'; document.getElementById('supName').value = result.title; }
+                    if (result.price) { html += '<b>Prix:</b> ' + result.price + ' €<br>'; document.getElementById('supPrice').value = result.price; }
+                    if (result.image) { html += '<b>Image:</b> trouvée ✓<br>'; document.getElementById('supImage').value = result.image; }
+                    if (result.description) { html += '<b>Description:</b> ' + result.description.slice(0, 100) + '...<br>'; document.getElementById('supDescription').value = result.description; }
+                    if (result.availability) { html += '<b>Dispo:</b> ' + result.availability; document.getElementById('supStock').value = result.availability; }
+                    if (!html) html = 'Aucune info récupérée automatiquement.';
+                    box.innerHTML = '<i class="fas fa-circle-check" style="color:var(--success)"></i> ' + html;
+                });
+            }
+
+            const form = document.getElementById('supplierForm');
+            if (form) {
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const data = {
+                        name: document.getElementById('supName').value.trim(),
+                        url: document.getElementById('supUrl').value.trim(),
+                        price: parseFloat(document.getElementById('supPrice').value) || 0,
+                        image_url: document.getElementById('supImage').value.trim(),
+                        stock_info: document.getElementById('supStock').value.trim(),
+                        description: document.getElementById('supDescription').value.trim(),
+                        category: document.getElementById('supCategory').value
+                    };
+                    if (!data.name) { this.toast('Nom requis', 'error'); return; }
+                    const result = await api('/suppliers', { method: 'POST', body: JSON.stringify(data) });
+                    if (!result) return;
+                    form.reset();
+                    document.getElementById('scrapeResult').style.display = 'none';
+                    this.toast('Fournisseur ajouté', 'success');
+                    this.loadSupplierTable();
+                });
+            }
+        },
+
+        async loadSupplierTable() {
+            const wrap = document.getElementById('adminSupplierWrap');
+            if (!wrap) return;
+            const suppliers = await api('/suppliers');
+            if (!suppliers || !suppliers.length) {
+                wrap.innerHTML = '<div class="empty-state"><i class="fas fa-truck"></i><p>Aucun fournisseur</p></div>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.innerHTML = `<thead><tr>
+                <th><i class="fas fa-image"></i></th>
+                <th><i class="fas fa-tag"></i> Nom</th>
+                <th><i class="fas fa-link"></i> Lien</th>
+                <th><i class="fas fa-euro-sign"></i> Prix</th>
+                <th><i class="fas fa-folder"></i> Catégorie</th>
+                <th><i class="fas fa-eye"></i> Visible</th>
+                <th><i class="fas fa-tools"></i> Actions</th>
+            </tr></thead><tbody></tbody>`;
+            const tbody = table.querySelector('tbody');
+
+            suppliers.forEach(s => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${s.image_url ? `<img src="${this.esc(s.image_url)}" style="width:40px;height:40px;object-fit:cover;border-radius:6px" onerror="this.src=''">` : '<i class="fas fa-box" style="color:var(--text-muted)"></i>'}</td>
+                    <td style="font-weight:600">${this.esc(s.name)}</td>
+                    <td>${s.url ? `<a href="${this.esc(s.url)}" target="_blank" style="color:var(--accent);font-size:0.8rem"><i class="fas fa-external-link-alt"></i></a>` : '-'}</td>
+                    <td>${s.price > 0 ? s.price.toFixed(2) + ' €' : '-'}</td>
+                    <td style="font-size:0.8rem">${s.category}</td>
+                    <td>${s.visible ? '<i class="fas fa-check-circle" style="color:var(--success)"></i>' : '<i class="fas fa-times-circle" style="color:var(--danger)"></i>'}</td>
+                    <td style="display:flex;gap:4px">
+                        <button class="btn btn-ghost btn-xs btn-icon toggle-vis-btn" data-id="${s.id}" data-vis="${s.visible}" title="${s.visible ? 'Masquer' : 'Afficher'}" style="color:var(--accent)"><i class="fas ${s.visible ? 'fa-eye-slash' : 'fa-eye'}"></i></button>
+                        <button class="btn btn-ghost btn-xs btn-icon delete-sup-btn" data-id="${s.id}" title="Supprimer" style="color:var(--danger)"><i class="fas fa-trash-can"></i></button>
+                    </td>
+                `;
+                const toggleBtn = tr.querySelector('.toggle-vis-btn');
+                if (toggleBtn) {
+                    toggleBtn.addEventListener('click', async () => {
+                        const vis = toggleBtn.dataset.vis === '1' ? false : true;
+                        const result = await api('/suppliers/' + s.id, { method: 'PUT', body: JSON.stringify({ visible: vis }) });
+                        if (result) { this.toast(vis ? 'Visible' : 'Masqué', 'info'); this.loadSupplierTable(); }
+                    });
+                }
+                const delBtn = tr.querySelector('.delete-sup-btn');
+                if (delBtn) {
+                    delBtn.addEventListener('click', async () => {
+                        if (!confirm('Supprimer ce fournisseur ?')) return;
+                        const result = await api('/suppliers/' + s.id, { method: 'DELETE' });
+                        if (result) { this.toast('Supprimé', 'info'); this.loadSupplierTable(); }
+                    });
+                }
+                tbody.appendChild(tr);
+            });
+            wrap.innerHTML = '';
+            wrap.appendChild(table);
+        },
 
         renderExport(container) {
             if (adminChart) { adminChart.destroy(); adminChart = null }

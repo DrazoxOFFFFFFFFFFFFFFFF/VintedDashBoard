@@ -9,6 +9,7 @@ const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
 const adminRoutes = require('./routes/admin');
 const enhanceRoutes = require('./routes/enhance');
+const supplierRoutes = require('./routes/suppliers');
 
 if (!process.env.JWT_SECRET) {
   process.env.JWT_SECRET = crypto.randomBytes(32).toString('hex');
@@ -36,6 +37,7 @@ app.get('/api/health', async (req, res) => {
 
 app.use('/tmp', express.static(path.join(__dirname, 'tmp')));
 app.use('/api/enhance', enhanceRoutes);
+app.use('/api/suppliers', supplierRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
 app.use('/api/admin', adminRoutes);

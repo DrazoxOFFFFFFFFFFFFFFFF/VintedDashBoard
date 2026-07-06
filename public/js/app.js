@@ -97,6 +97,7 @@ const App = {
             case 'stock': this.renderStock(container); break;
             case 'accounting': this.renderAccounting(container); break;
             case 'goals': this.renderGoals(container); break;
+            case 'suppliers': this.renderSuppliers(container); break;
             case 'enhance': this.renderEnhance(container); break;
         }
         this.updateSidebarProgress();
@@ -615,6 +616,82 @@ const App = {
         document.getElementById('transactionForm').reset();
         this.renderTransactionTable();
         this.toast('Transaction ajoutée', 'success');
+    },
+
+    /* ========== SUPPLIERS ========== */
+
+    async renderSuppliers(container) {
+      container.innerHTML = '';
+      container.appendChild(this.h('div', { className: 'page-header' },
+        this.h('h1', {}, this.h('i', { className: 'fas fa-truck' }), ' Fournisseurs')
+      ));
+
+      const searchBar = this.h('div', { style: 'display:flex;gap:12px;margin-bottom:20px;max-width:900px;margin-left:auto;margin-right:auto' });
+      searchBar.innerHTML = `
+        <div class="search-box" style="flex:1">
+          <i class="fas fa-search"></i>
+          <input type="text" id="supplierSearch" placeholder="Rechercher un fournisseur..." style="width:100%">
+        </div>
+        <select id="supplierCategory" class="filter-select">
+          <option value="all">Toutes catégories</option>
+          <option value="general">Général</option>
+          <option value="vetements">Vêtements</option>
+          <option value="chaussures">Chaussures</option>
+          <option value="accessoires">Accessoires</option>
+          <option value="electronique">Électronique</option>
+          <option value="maison">Maison</option>
+        </select>
+      `;
+      container.appendChild(searchBar);
+
+      const grid = this.h('div', { id: 'supplierGrid', style: 'display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;max-width:1100px;margin:0 auto' });
+      container.appendChild(grid);
+
+      const data = await api('/suppliers');
+      if (!data || !data.length) {
+        grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><i class="fas fa-truck"></i><p>Aucun fournisseur pour le moment</p></div>';
+        return;
+      }
+
+      this.suppliers = data;
+      const doFilter = () => this.renderSupplierGrid();
+      document.getElementById('supplierSearch').addEventListener('input', doFilter);
+      document.getElementById('supplierCategory').addEventListener('change', doFilter);
+      this.renderSupplierGrid();
+    },
+
+    renderSupplierGrid() {
+      const grid = document.getElementById('supplierGrid');
+      if (!grid) return;
+      const query = (document.getElementById('supplierSearch')?.value || '').toLowerCase();
+      const cat = document.getElementById('supplierCategory')?.value || 'all';
+
+      let items = this.suppliers;
+      if (cat !== 'all') items = items.filter(s => s.category === cat);
+      if (query) items = items.filter(s => (s.name || '').toLowerCase().includes(query) || (s.description || '').toLowerCase().includes(query));
+
+      if (!items.length) {
+        grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><i class="fas fa-search"></i><p>Aucun résultat</p></div>';
+        return;
+      }
+
+      grid.innerHTML = '';
+      items.forEach(s => {
+        const card = this.h('div', { className: 'form-card', style: 'overflow:hidden;padding:0' });
+        const imgHtml = s.image_url ? `<img src="${this.esc(s.image_url)}" alt="${this.esc(s.name)}" style="width:100%;height:200px;object-fit:cover;border-bottom:1px solid var(--border)" onerror="this.style.display='none'">` : '<div style="height:120px;display:flex;align-items:center;justify-content:center;background:var(--bg-card);border-bottom:1px solid var(--border);color:var(--text-muted)"><i class="fas fa-box" style="font-size:2rem;opacity:0.2"></i></div>';
+        card.innerHTML = imgHtml + `
+          <div style="padding:14px">
+            <h3 style="font-size:0.95rem;font-weight:600;margin:0 0 4px;color:var(--text-primary)">${this.esc(s.name)}</h3>
+            ${s.description ? `<p style="font-size:0.75rem;color:var(--text-muted);margin:0 0 8px">${this.esc(s.description)}</p>` : ''}
+            ${s.price > 0 ? `<div style="font-size:1.1rem;font-weight:700;color:var(--accent);margin-bottom:8px">${s.price.toFixed(2)} €</div>` : ''}
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              ${s.url ? `<a href="${this.esc(s.url)}" target="_blank" class="btn btn-primary btn-xs" style="flex:1;justify-content:center;text-decoration:none"><i class="fas fa-external-link-alt"></i> Voir l'offre</a>` : ''}
+              ${s.stock_info ? `<span class="status-badge ${s.stock_info === 'en_stock' || s.stock_info === 'in_stock' ? 'vendu' : 'retourne'}"><i class="fas ${s.stock_info === 'en_stock' || s.stock_info === 'in_stock' ? 'fa-check' : 'fa-clock'}"></i> ${s.stock_info}</span>` : ''}
+              ${s.category !== 'general' ? `<span class="status-badge" style="background:var(--accent-glow)"><i class="fas fa-tag"></i> ${s.category}</span>` : ''}
+            </div>
+          </div>`;
+        grid.appendChild(card);
+      });
     },
 
     /* ========== ENHANCE ========== */

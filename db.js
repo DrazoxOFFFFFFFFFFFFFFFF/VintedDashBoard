@@ -55,6 +55,21 @@ async function getDb() {
         itemid TEXT
       )
     `);
+    await client.query(`
+      CREATE TABLE suppliers (
+        id SERIAL PRIMARY KEY,
+        added_by INTEGER NOT NULL REFERENCES users(id),
+        name TEXT NOT NULL,
+        url TEXT,
+        price REAL DEFAULT 0,
+        image_url TEXT,
+        stock_info TEXT,
+        description TEXT,
+        category TEXT DEFAULT 'general',
+        visible INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (to_char(now(), 'YYYY-MM-DD HH24:MI:SS'))
+      )
+    `);
     client.release();
     console.log(' PostgreSQL connecté');
     return pgPool;
@@ -103,6 +118,22 @@ async function getDb() {
         date TEXT,
         itemId TEXT,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+    sqlDb.run(`
+      CREATE TABLE IF NOT EXISTS suppliers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        added_by INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        url TEXT,
+        price REAL DEFAULT 0,
+        image_url TEXT,
+        stock_info TEXT,
+        description TEXT,
+        category TEXT DEFAULT 'general',
+        visible INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (added_by) REFERENCES users(id)
       )
     `);
     saveDb();
