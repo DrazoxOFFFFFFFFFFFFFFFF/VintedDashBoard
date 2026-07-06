@@ -668,7 +668,7 @@ const App = {
 
       let items = this.suppliers;
       if (cat !== 'all') items = items.filter(s => s.category === cat);
-      if (query) items = items.filter(s => (s.name || '').toLowerCase().includes(query) || (s.description || '').toLowerCase().includes(query));
+      if (query) items = items.filter(s => (s.name || '').toLowerCase().includes(query));
 
       if (!items.length) {
         grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><i class="fas fa-search"></i><p>Aucun résultat</p></div>';
@@ -682,7 +682,7 @@ const App = {
         card.innerHTML = imgHtml + `
           <div style="padding:14px">
             <h3 style="font-size:0.95rem;font-weight:600;margin:0 0 4px;color:var(--text-primary)">${this.esc(s.name)}</h3>
-            ${s.description ? `<p style="font-size:0.75rem;color:var(--text-muted);margin:0 0 8px">${this.esc(s.description)}</p>` : ''}
+
             ${s.price > 0 ? `<div style="font-size:1.1rem;font-weight:700;color:var(--accent);margin-bottom:8px">${s.price.toFixed(2)} €</div>` : ''}
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               ${s.url ? `<a href="${this.esc(s.url)}" target="_blank" class="btn btn-primary btn-xs" style="flex:1;justify-content:center;text-decoration:none"><i class="fas fa-external-link-alt"></i> Voir l'offre</a>` : ''}

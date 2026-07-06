@@ -490,10 +490,7 @@
                     </div>
                     <div class="form-group">
                         <label><i class="fas fa-link"></i> Lien du produit</label>
-                        <div style="display:flex;gap:8px">
-                            <input type="url" id="supUrl" placeholder="https://..." style="flex:1">
-                            <button type="button" class="btn btn-ghost btn-sm" id="scrapeBtn"><i class="fas fa-robot"></i> Auto</button>
-                        </div>
+                        <input type="url" id="supUrl" placeholder="https://..." style="width:100%">
                     </div>
                     <div id="scrapeResult" style="display:none;background:var(--accent-glow);border:1px solid var(--accent);border-radius:8px;padding:10px;margin:8px 0;font-size:0.8rem"></div>
                     <div class="form-row">
@@ -513,13 +510,9 @@
                             </select>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label><i class="fas fa-info-circle"></i> Stock / Description</label>
-                        <input type="text" id="supStock" placeholder="Ex: En stock, 5 disponibles...">
-                    </div>
                     <div class="form-group" style="margin:0">
-                        <label><i class="fas fa-pen"></i> Description</label>
-                        <textarea id="supDescription" rows="2" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text-primary);font-family:var(--font);font-size:0.8rem;resize:vertical"></textarea>
+                        <label><i class="fas fa-info-circle"></i> Stock</label>
+                        <input type="text" id="supStock" placeholder="Ex: En stock, 5 disponibles...">
                     </div>
                     <div class="form-actions" style="margin-top:16px">
                         <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Ajouter</button>
@@ -537,27 +530,27 @@
         },
 
         async bindSupplierForm() {
-            const scrapeBtn = document.getElementById('scrapeBtn');
-            if (scrapeBtn) {
-                scrapeBtn.addEventListener('click', async () => {
-                    const url = document.getElementById('supUrl').value;
-                    if (!url) { this.toast('Entre un lien d\'abord', 'error'); return; }
-                    scrapeBtn.disabled = true;
-                    scrapeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-                    const result = await api('/suppliers/scrape', { method: 'POST', body: JSON.stringify({ url }) });
-                    scrapeBtn.disabled = false;
-                    scrapeBtn.innerHTML = '<i class="fas fa-robot"></i> Auto';
-                    if (!result) return;
-                    const box = document.getElementById('scrapeResult');
-                    box.style.display = 'block';
-                    let html = '';
-                    if (result.title) { html += '<b>Nom:</b> ' + result.title + '<br>'; document.getElementById('supName').value = result.title; }
-                    if (result.price) { html += '<b>Prix:</b> ' + result.price + ' €<br>'; document.getElementById('supPrice').value = result.price; }
-                    if (result.image) { html += '<b>Image:</b> trouvée ✓<br>'; document.getElementById('supImage').value = result.image; }
-                    if (result.description) { html += '<b>Description:</b> ' + result.description.slice(0, 100) + '...<br>'; document.getElementById('supDescription').value = result.description; }
-                    if (result.availability) { html += '<b>Dispo:</b> ' + result.availability; document.getElementById('supStock').value = result.availability; }
-                    if (!html) html = 'Aucune info récupérée automatiquement.';
-                    box.innerHTML = '<i class="fas fa-circle-check" style="color:var(--success)"></i> ' + html;
+            const urlInput = document.getElementById('supUrl');
+            if (urlInput) {
+                let scrapeTimer;
+                urlInput.addEventListener('input', () => {
+                    clearTimeout(scrapeTimer);
+                    const url = urlInput.value.trim();
+                    if (!url || !url.startsWith('http')) return;
+                    scrapeTimer = setTimeout(async () => {
+                        const box = document.getElementById('scrapeResult');
+                        box.style.display = 'block';
+                        box.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scraping en cours...';
+                        const result = await api('/suppliers/scrape', { method: 'POST', body: JSON.stringify({ url }) });
+                        if (!result) { box.innerHTML = '<i class="fas fa-circle-xmark" style="color:var(--danger)"></i> Erreur de scraping'; return; }
+                        let html = '';
+                        if (result.title) { html += '<b>Nom:</b> ' + result.title + '<br>'; document.getElementById('supName').value = result.title; }
+                        if (result.price) { html += '<b>Prix:</b> ' + result.price + ' €<br>'; document.getElementById('supPrice').value = result.price; }
+                        if (result.image) { html += '<b>Image:</b> trouvée ✓<br>'; document.getElementById('supImage').value = result.image; }
+                        if (result.availability) { html += '<b>Dispo:</b> ' + result.availability; document.getElementById('supStock').value = result.availability; }
+                        if (!html) html = 'Aucune info récupérée.';
+                        box.innerHTML = '<i class="fas fa-circle-check" style="color:var(--success)"></i> ' + html;
+                    }, 800);
                 });
             }
 
@@ -571,7 +564,6 @@
                         price: parseFloat(document.getElementById('supPrice').value) || 0,
                         image_url: document.getElementById('supImage').value.trim(),
                         stock_info: document.getElementById('supStock').value.trim(),
-                        description: document.getElementById('supDescription').value.trim(),
                         category: document.getElementById('supCategory').value
                     };
                     if (!data.name) { this.toast('Nom requis', 'error'); return; }

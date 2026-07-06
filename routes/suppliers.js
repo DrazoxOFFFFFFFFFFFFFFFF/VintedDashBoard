@@ -60,13 +60,13 @@ router.post('/', async (req, res) => {
     const user = await get('SELECT is_admin FROM users WHERE id = ?', [req.userId]);
     if (!user || !user.is_admin) return res.status(403).json({ error: 'Admin uniquement' });
 
-    const { name, url, price, image_url, stock_info, description, category, visible } = req.body;
+    const { name, url, price, image_url, stock_info, category, visible } = req.body;
     if (!name) return res.status(400).json({ error: 'Nom requis' });
 
     const id = require('crypto').randomUUID();
     await run(
-      'INSERT INTO suppliers (id, added_by, name, url, price, image_url, stock_info, description, category, visible) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, req.userId, name, url || '', price || 0, image_url || '', stock_info || '', description || '', category || 'general', visible !== undefined ? (visible ? 1 : 0) : 1]
+      'INSERT INTO suppliers (id, added_by, name, url, price, image_url, stock_info, category, visible) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, req.userId, name, url || '', price || 0, image_url || '', stock_info || '', category || 'general', visible !== undefined ? (visible ? 1 : 0) : 1]
     );
     res.json({ message: 'Fournisseur ajouté', id });
   } catch (err) { res.status(500).json({ error: 'Erreur serveur' }) }
@@ -82,13 +82,12 @@ router.put('/:id', async (req, res) => {
     const sup = await get('SELECT id FROM suppliers WHERE id = ?', [req.params.id]);
     if (!sup) return res.status(404).json({ error: 'Fournisseur introuvable' });
 
-    const { name, url, price, image_url, stock_info, description, category, visible } = req.body;
+    const { name, url, price, image_url, stock_info, category, visible } = req.body;
     if (name !== undefined) await run('UPDATE suppliers SET name = ? WHERE id = ?', [name, req.params.id]);
     if (url !== undefined) await run('UPDATE suppliers SET url = ? WHERE id = ?', [url, req.params.id]);
     if (price !== undefined) await run('UPDATE suppliers SET price = ? WHERE id = ?', [price, req.params.id]);
     if (image_url !== undefined) await run('UPDATE suppliers SET image_url = ? WHERE id = ?', [image_url, req.params.id]);
     if (stock_info !== undefined) await run('UPDATE suppliers SET stock_info = ? WHERE id = ?', [stock_info, req.params.id]);
-    if (description !== undefined) await run('UPDATE suppliers SET description = ? WHERE id = ?', [description, req.params.id]);
     if (category !== undefined) await run('UPDATE suppliers SET category = ? WHERE id = ?', [category, req.params.id]);
     if (visible !== undefined) await run('UPDATE suppliers SET visible = ? WHERE id = ?', [visible ? 1 : 0, req.params.id]);
 
