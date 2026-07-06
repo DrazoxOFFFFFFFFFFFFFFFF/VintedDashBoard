@@ -15,9 +15,10 @@ async function getDb() {
   if (process.env.DATABASE_URL) {
     pgPool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
     const client = await pgPool.connect();
-    await client.query(`DROP TABLE IF EXISTS transactions`);
-    await client.query(`DROP TABLE IF EXISTS items`);
-    await client.query(`DROP TABLE IF EXISTS users`);
+    await client.query(`DROP TABLE IF EXISTS transactions CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS items CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS suppliers CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS users CASCADE`);
     await client.query(`
       CREATE TABLE users (
         id SERIAL PRIMARY KEY,
