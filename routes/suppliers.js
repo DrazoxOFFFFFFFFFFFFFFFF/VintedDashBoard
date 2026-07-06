@@ -7,6 +7,30 @@ router.use(auth);
 
 const LOVE_API = 'https://www.lovegobuy.com/index.php?s=/api/goods/detail';
 
+async function tryScrapeOriginal(goodsId, shopType) {
+  let platformUrl = '';
+  if (shopType === 'ali_1688' || shopType === '1688') {
+    platformUrl = `https://detail.1688.com/offer/${goodsId}.html`;
+  } else if (shopType === 'taobao') {
+    platformUrl = `https://item.taobao.com/item.htm?id=${goodsId}`;
+  } else if (shopType === 'weidian') {
+    platformUrl = `https://weidian.com/item.html?itemID=${goodsId}`;
+  }
+  if (!platformUrl) return null;
+  try {
+    const resp = await fetch(platformUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+      signal: AbortSignal.timeout(8000)
+    });
+    const html = await resp.text();
+    const titleMatch = html.match(/<title>([^<]*)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].trim().replace(/[-–|].*$/, '').trim() : '';
+    return { title, platformUrl };
+  } catch (e) {
+    return null;
+  }
+}
+
 /* Scrape LoveGoBuy product URL */
 router.post('/scrape', async (req, res) => {
   try {
@@ -28,35 +52,42 @@ router.post('/scrape', async (req, res) => {
     }
 
     const resp = await fetch(`${LOVE_API}&goodsId=${goodsId}&shop_type=${shopType}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
       signal: AbortSignal.timeout(10000)
     });
     const data = await resp.json();
-    if (!data || data.status !== 200 || !data.data || !data.data.detail) {
-      return res.json({ title: '', price: 0, image: '', stock_info: '' });
-    }
 
-    const d = data.data.detail;
-    const title = (d.goods_name || '').trim();
-    const image = d.goods_image || (d.goods_images && d.goods_images[0]?.preview_url) || '';
-    const stock = d.stock_total != null ? (parseInt(d.stock_total) > 0 ? 'En stock' : 'Rupture') : '';
+    if (data && data.status === 200 && data.data && data.data.detail) {
+      const d = data.data.detail;
+      const title = (d.goods_name || '').trim();
+      const image = d.goods_image || (d.goods_images && d.goods_images[0]?.preview_url) || '';
+      const stock = d.stock_total != null ? (parseInt(d.stock_total) > 0 ? 'En stock' : 'Rupture') : '';
 
-    /* Convert price from USD to EUR via Frankfurter API */
-    let priceEur = 0;
-    if (d.goods_price_min_show) {
-      const usd = parseFloat(d.goods_price_min_show.replace(/[^0-9.]/g, ''));
-      if (usd > 0) {
-        try {
-          const fx = await fetch('https://api.frankfurter.app/latest?from=USD&to=EUR', { signal: AbortSignal.timeout(5000) });
-          const fxData = await fx.json();
-          const rate = fxData.rates?.EUR || 0.92;
-          priceEur = Math.round(usd * rate * 100) / 100;
-        } catch (e) {
-          priceEur = Math.round(usd * 0.92 * 100) / 100;
+      let priceEur = 0;
+      if (d.goods_price_min_show) {
+        const usd = parseFloat(d.goods_price_min_show.replace(/[^0-9.]/g, ''));
+        if (usd > 0) {
+          try {
+            const fx = await fetch('https://api.frankfurter.app/latest?from=USD&to=EUR', { signal: AbortSignal.timeout(5000) });
+            const fxData = await fx.json();
+            const rate = fxData.rates?.EUR || 0.92;
+            priceEur = Math.round(usd * rate * 100) / 100;
+          } catch (e) {
+            priceEur = Math.round(usd * 0.92 * 100) / 100;
+          }
         }
       }
+
+      return res.json({ title, price: priceEur, image, stock_info: stock });
     }
 
-    res.json({ title, price: priceEur, image, stock_info: stock });
+    /* Fallback: try scraping original platform page */
+    const fallback = await tryScrapeOriginal(goodsId, shopType);
+    if (fallback && fallback.title) {
+      return res.json({ title: fallback.title, price: 0, image: '', stock_info: '' });
+    }
+
+    return res.json({ title: '', price: 0, image: '', stock_info: '' });
   } catch (err) {
     res.json({ title: '', price: 0, image: '', stock_info: '' });
   }
