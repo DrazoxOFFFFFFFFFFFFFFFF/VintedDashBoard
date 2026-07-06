@@ -2,8 +2,14 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Connexion - VintedDashboard</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="VintedDash">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
@@ -21,10 +27,17 @@
             font-family:var(--font); background:var(--bg);
             color:var(--text); display:flex; align-items:center;
             justify-content:center; min-height:100vh;
+            min-height:-webkit-fill-available;
             background-image:radial-gradient(ellipse at 50% 0%,rgba(0,212,255,0.04) 0%,transparent 60%);
+            -webkit-tap-highlight-color:transparent;
         }
         .auth-wrap {
-            width:100%; max-width:420px; padding:20px;
+            width:100%; max-width:420px;
+            padding:20px;
+            padding-top:max(20px,env(safe-area-inset-top));
+            padding-bottom:max(20px,env(safe-area-inset-bottom));
+            padding-left:max(20px,env(safe-area-inset-left));
+            padding-right:max(20px,env(safe-area-inset-right));
         }
         .logo {
             text-align:center; margin-bottom:32px;
@@ -57,23 +70,25 @@
         }
         .form-group label i { color:var(--accent); font-size:0.7rem }
         .form-group input {
-            width:100%; padding:12px 14px; background:rgba(14,14,30,0.8);
-            border:1px solid var(--border); border-radius:10px;
-            color:var(--text); font-size:0.9rem; font-family:var(--font);
-            transition:0.3s ease;
+            width:100%; padding:14px 16px; background:rgba(14,14,30,0.8);
+            border:1px solid var(--border); border-radius:12px;
+            color:var(--text); font-size:1rem; font-family:var(--font);
+            transition:0.3s ease; -webkit-appearance:none;
+            min-height:48px;
         }
         .form-group input:focus {
             outline:none; border-color:var(--accent);
             box-shadow:0 0 0 4px rgba(0,212,255,0.1);
         }
         .btn {
-            width:100%; padding:13px; border:none; border-radius:10px;
-            font-size:0.9rem; font-weight:600; font-family:var(--font);
+            width:100%; padding:14px; border:none; border-radius:12px;
+            font-size:1rem; font-weight:600; font-family:var(--font);
             cursor:pointer; transition:0.3s ease;
             display:flex; align-items:center; justify-content:center; gap:8px;
+            min-height:50px; -webkit-tap-highlight-color:transparent;
         }
         .btn-primary { background:var(--grad); color:#fff; box-shadow:0 4px 20px rgba(0,212,255,0.25) }
-        .btn-primary:hover { box-shadow:0 6px 30px rgba(0,212,255,0.4); transform:translateY(-1px) }
+        .btn-primary:active { transform:scale(0.97) }
         .btn-primary:disabled { opacity:0.6; cursor:not-allowed; transform:none }
         .btn-ghost {
             background:transparent; color:var(--text2); border:1px solid var(--border);

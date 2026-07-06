@@ -1,4 +1,4 @@
-const CACHE = "vinteddash-v2";
+const CACHE = "vinteddash-v3";
 const ASSETS = [
   "/",
   "/app",
