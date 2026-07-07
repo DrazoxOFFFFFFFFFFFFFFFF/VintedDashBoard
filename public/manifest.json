@@ -4,8 +4,8 @@
   "description": "Centre administratif Vinted — gérez votre stock, comptabilité et objectifs",
   "start_url": "/app",
   "display": "standalone",
-  "background_color": "#0a0a14",
-  "theme_color": "#00d4ff",
+  "background_color": "#0e0e18",
+  "theme_color": "#10b981",
   "orientation": "portrait-primary",
   "icons": [
     {
